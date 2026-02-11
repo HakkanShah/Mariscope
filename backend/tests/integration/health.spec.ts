@@ -10,6 +10,8 @@ describe('GET /health', () => {
       databaseUrl: '',
       persistenceDriver: 'memory',
       corsOrigin: '*',
+      logLevel: 'error',
+      nodeEnv: 'test',
     });
     const app = createApp({ dependencies, corsOrigin: '*' });
 

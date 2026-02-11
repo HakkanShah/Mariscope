@@ -8,32 +8,39 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { ComplianceRouteRecord } from '../../../core/domain';
 import { frontendUseCases } from '../../infrastructure/api/use-cases';
+import { formatUserError } from '../../../shared/errors/format-user-error';
+import { AlertBanner } from '../../../shared/ui/AlertBanner';
+import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 export const ComparePage = () => {
   const [rows, setRows] = useState<ComplianceRouteRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCompliance = async () => {
+  const loadCompliance = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      console.info('[frontend][compare] compliance computation requested');
       const data = await frontendUseCases.computeCB.execute();
       setRows(data);
+      console.info('[frontend][compare] compliance rows loaded', { count: data.length });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load compliance data');
+      const message = formatUserError(requestError);
+      console.error('[frontend][compare] compliance load failed', { message, requestError });
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadCompliance();
-  }, []);
+  }, [loadCompliance]);
 
   const chartData = useMemo(() => {
     return rows.map((row) => ({
@@ -45,11 +52,11 @@ export const ComparePage = () => {
   }, [rows]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold">Compare</h2>
-          <p className="text-sm text-slate-600">
+          <h2 className="text-2xl font-semibold">Compare</h2>
+          <p className="text-sm text-slate-600 md:text-base">
             Compare route intensities against FuelEU target and inspect route-level compliance balance.
           </p>
         </div>
@@ -58,18 +65,18 @@ export const ComparePage = () => {
           onClick={() => {
             void loadCompliance();
           }}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          className="button-muted"
         >
           Recompute
         </button>
       </div>
 
-      {loading ? <p className="text-sm text-slate-600">Loading compliance data...</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <AlertBanner title="Computation failed" message={error} variant="error" onDismiss={() => setError(null)} /> : null}
+      {loading ? <LoadingBlock label="Computing compliance balance..." /> : null}
 
       {!loading && rows.length > 0 ? (
         <>
-          <div className="h-80 w-full">
+          <div className="section-card h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ left: 12, right: 12, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -83,7 +90,7 @@ export const ComparePage = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="section-card overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
                 <tr>
@@ -112,6 +119,12 @@ export const ComparePage = () => {
             </table>
           </div>
         </>
+      ) : null}
+
+      {!loading && rows.length === 0 ? (
+        <div className="section-card text-sm text-slate-600">
+          No compliance data returned. Check backend connectivity and retry.
+        </div>
       ) : null}
     </div>
   );

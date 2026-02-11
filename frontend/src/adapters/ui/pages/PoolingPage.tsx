@@ -1,19 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { ComplianceRouteRecord, CreatePoolResponse } from '../../../core/domain';
 import { frontendUseCases } from '../../infrastructure/api/use-cases';
+import { formatUserError } from '../../../shared/errors/format-user-error';
+import { AlertBanner } from '../../../shared/ui/AlertBanner';
+import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 export const PoolingPage = () => {
   const [complianceRows, setComplianceRows] = useState<ComplianceRouteRecord[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [poolResult, setPoolResult] = useState<CreatePoolResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [poolingInProgress, setPoolingInProgress] = useState(false);
 
-  const loadCompliance = async () => {
+  const loadCompliance = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccess(null);
+      console.info('[frontend][pooling] loading compliance for pool builder');
       const data = await frontendUseCases.computeCB.execute();
       setComplianceRows(data);
       setSelected(
@@ -22,16 +29,23 @@ export const PoolingPage = () => {
           return acc;
         }, {}),
       );
+      console.info('[frontend][pooling] compliance rows loaded', { count: data.length });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load compliance data');
+      const message = formatUserError(requestError);
+      console.error('[frontend][pooling] load failed', { message, requestError });
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadCompliance();
-  }, []);
+  }, [loadCompliance]);
+
+  const selectedCount = useMemo(() => {
+    return Object.values(selected).filter(Boolean).length;
+  }, [selected]);
 
   const handleCreatePool = async () => {
     const routeIds = Object.entries(selected)
@@ -40,24 +54,34 @@ export const PoolingPage = () => {
 
     if (routeIds.length === 0) {
       setError('Select at least one route');
+      setSuccess(null);
       return;
     }
 
     try {
       setError(null);
+      setSuccess(null);
+      setPoolingInProgress(true);
+      console.info('[frontend][pooling] create pool start', { routeIds });
       const result = await frontendUseCases.createPool.execute(routeIds);
       setPoolResult(result);
+      setSuccess(`Pool ${result.poolId} created successfully`);
+      console.info('[frontend][pooling] create pool success', { poolId: result.poolId });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to create pool');
+      const message = formatUserError(requestError);
+      console.error('[frontend][pooling] create pool failed', { message, requestError });
+      setError(message);
+    } finally {
+      setPoolingInProgress(false);
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold">Pooling</h2>
-          <p className="text-sm text-slate-600">
+          <h2 className="text-2xl font-semibold">Pooling</h2>
+          <p className="text-sm text-slate-600 md:text-base">
             Build a compliance pool (Article 21) with greedy surplus allocation across selected routes.
           </p>
         </div>
@@ -66,17 +90,32 @@ export const PoolingPage = () => {
           onClick={() => {
             void loadCompliance();
           }}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          className="button-muted"
         >
           Recompute
         </button>
       </div>
 
-      {loading ? <p className="text-sm text-slate-600">Loading compliance data...</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      <div className="section-card flex flex-wrap items-center justify-between gap-3 bg-white/70">
+        <p className="text-sm text-slate-600">
+          Selected routes: <span className="font-semibold text-slate-900">{selectedCount}</span>
+        </p>
+        <p className="text-xs text-slate-500">Tip: include both surplus and deficit routes for useful pooling.</p>
+      </div>
+
+      {error ? <AlertBanner title="Pooling request failed" message={error} variant="error" onDismiss={() => setError(null)} /> : null}
+      {success ? (
+        <AlertBanner
+          title="Pool created"
+          message={success}
+          variant="success"
+          onDismiss={() => setSuccess(null)}
+        />
+      ) : null}
+      {loading ? <LoadingBlock label="Loading compliance data..." /> : null}
 
       {!loading ? (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="section-card overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
               <tr>
@@ -116,17 +155,18 @@ export const PoolingPage = () => {
         onClick={() => {
           void handleCreatePool();
         }}
-        className="rounded-md bg-cyan-700 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-600"
+        className="button-primary"
+        disabled={poolingInProgress}
       >
-        Create Pool
+        {poolingInProgress ? 'Creating pool...' : 'Create Pool'}
       </button>
 
       {poolResult ? (
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="section-card space-y-2 bg-cyan-50/60">
           <p className="text-sm font-semibold text-slate-900">
             Pool {poolResult.poolId} created at {new Date(poolResult.createdAt).toLocaleString()}
           </p>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-white text-left text-xs uppercase text-slate-600">
                 <tr>

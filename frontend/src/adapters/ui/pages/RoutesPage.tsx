@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { RouteModel } from '../../../core/domain';
 import { frontendUseCases } from '../../infrastructure/api/use-cases';
+import { formatUserError } from '../../../shared/errors/format-user-error';
+import { AlertBanner } from '../../../shared/ui/AlertBanner';
+import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 const formatNumber = (value: number | null) => {
   if (value === null) {
@@ -15,12 +18,16 @@ export const RoutesPage = () => {
   const [routes, setRoutes] = useState<RouteModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [baselineDrafts, setBaselineDrafts] = useState<Record<string, string>>({});
+  const [savingRouteId, setSavingRouteId] = useState<string | null>(null);
 
-  const loadRoutes = async () => {
+  const loadRoutes = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccess(null);
+      console.info('[frontend][routes] loading routes');
       const data = await frontendUseCases.getRoutes.execute();
       setRoutes(data);
       setBaselineDrafts(
@@ -32,16 +39,19 @@ export const RoutesPage = () => {
           return acc;
         }, {}),
       );
+      console.info('[frontend][routes] routes loaded', { count: data.length });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load routes');
+      const message = formatUserError(requestError);
+      console.error('[frontend][routes] load failed', { message, requestError });
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadRoutes();
-  }, []);
+  }, [loadRoutes]);
 
   const totalFuelConsumption = useMemo(() => {
     return routes.reduce((sum, route) => sum + route.fuelConsumptionTonnes, 0);
@@ -53,24 +63,34 @@ export const RoutesPage = () => {
 
     if (!Number.isFinite(baselineValue) || baselineValue < 0) {
       setError('Baseline intensity must be a non-negative number');
+      setSuccess(null);
       return;
     }
 
     try {
       setError(null);
+      setSuccess(null);
+      setSavingRouteId(routeId);
+      console.info('[frontend][routes] update baseline start', { routeId, baselineValue });
       const updated = await frontendUseCases.setBaseline.execute(routeId, baselineValue);
       setRoutes((current) => current.map((route) => (route.id === routeId ? updated : route)));
+      setSuccess(`Baseline saved for ${updated.name}`);
+      console.info('[frontend][routes] update baseline success', { routeId });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update baseline');
+      const message = formatUserError(requestError);
+      console.error('[frontend][routes] update baseline failed', { message, requestError });
+      setError(message);
+    } finally {
+      setSavingRouteId(null);
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Routes</h2>
-          <p className="text-sm text-slate-600">
+          <h2 className="text-2xl font-semibold">Routes</h2>
+          <p className="text-sm text-slate-600 md:text-base">
             Manage route baseline values and inspect route-level fuel and intensity data.
           </p>
         </div>
@@ -79,17 +99,26 @@ export const RoutesPage = () => {
           onClick={() => {
             void loadRoutes();
           }}
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          className="button-muted"
         >
           Refresh
         </button>
       </div>
 
-      {loading ? <p className="text-sm text-slate-600">Loading routes...</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? <AlertBanner title="Request failed" message={error} variant="error" onDismiss={() => setError(null)} /> : null}
+      {success ? (
+        <AlertBanner
+          title="Update complete"
+          message={success}
+          variant="success"
+          onDismiss={() => setSuccess(null)}
+        />
+      ) : null}
 
-      {!loading ? (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+      {loading ? <LoadingBlock label="Loading routes..." /> : null}
+
+      {!loading && routes.length > 0 ? (
+        <div className="section-card overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
               <tr>
@@ -129,9 +158,10 @@ export const RoutesPage = () => {
                         onClick={() => {
                           void handleBaselineUpdate(route.id);
                         }}
-                        className="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-600"
+                        className="button-primary px-3 py-1.5 text-xs"
+                        disabled={savingRouteId === route.id}
                       >
-                        Save
+                        {savingRouteId === route.id ? 'Saving...' : 'Save'}
                       </button>
                     </div>
                   </td>
@@ -149,6 +179,10 @@ export const RoutesPage = () => {
             </tfoot>
           </table>
         </div>
+      ) : null}
+
+      {!loading && routes.length === 0 ? (
+        <div className="section-card text-sm text-slate-600">No routes found. Seed data may be missing.</div>
       ) : null}
     </div>
   );

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './adapters/ui/App';
 import './shared/styles/tailwind.css';
+import { ErrorBoundary } from './shared/ui/ErrorBoundary';
 
 const container = document.getElementById('root');
 
@@ -12,7 +13,8 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
-

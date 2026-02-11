@@ -34,6 +34,8 @@ const createTestApp = async () => {
     databaseUrl: '',
     persistenceDriver: 'memory',
     corsOrigin: '*',
+    logLevel: 'error',
+    nodeEnv: 'test',
   });
 
   const options: CreateAppOptions = {

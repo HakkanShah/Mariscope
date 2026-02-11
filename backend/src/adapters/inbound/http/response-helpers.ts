@@ -15,22 +15,50 @@ export const asyncHandler = (handler: AsyncRequestHandler) => {
   };
 };
 
-export const mapErrorToHttp = (error: unknown): { statusCode: number; message: string } => {
+export interface HttpMappedError {
+  statusCode: number;
+  message: string;
+  exposeDetails: boolean;
+}
+
+export const mapErrorToHttp = (error: unknown): HttpMappedError => {
   if (error instanceof DomainValidationError) {
-    return { statusCode: 400, message: error.message };
+    return { statusCode: 400, message: error.message, exposeDetails: true };
   }
 
   if (error instanceof NotFoundError) {
-    return { statusCode: 404, message: error.message };
+    return { statusCode: 404, message: error.message, exposeDetails: true };
   }
 
   if (error instanceof ApplicationError) {
-    return { statusCode: 400, message: error.message };
+    return { statusCode: 400, message: error.message, exposeDetails: true };
+  }
+
+  if (error instanceof SyntaxError) {
+    return {
+      statusCode: 400,
+      message: 'Invalid JSON payload',
+      exposeDetails: true,
+    };
   }
 
   return {
     statusCode: 500,
     message: 'Internal server error',
+    exposeDetails: false,
   };
 };
 
+export const serializeUnknownError = (error: unknown): Record<string, unknown> => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    value: String(error),
+  };
+};
