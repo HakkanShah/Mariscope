@@ -1,6 +1,8 @@
 export interface AppConfig {
   port: number;
   databaseUrl: string;
+  persistenceDriver: 'memory' | 'postgres';
+  corsOrigin: string;
 }
 
 export const loadAppConfig = (): AppConfig => {
@@ -15,5 +17,8 @@ export const loadAppConfig = (): AppConfig => {
     port,
     databaseUrl:
       process.env['DATABASE_URL'] ?? 'postgres://postgres:postgres@localhost:5432/mariscope',
+    persistenceDriver:
+      process.env['PERSISTENCE_DRIVER'] === 'postgres' ? 'postgres' : 'memory',
+    corsOrigin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
   };
 };

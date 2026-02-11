@@ -1,10 +1,17 @@
 import request from 'supertest';
 
 import { createApp } from '../../src/adapters/inbound/http/app.js';
+import { createAppDependencies } from '../../src/infrastructure/wiring/dependencies.js';
 
 describe('GET /health', () => {
   it('returns service status', async () => {
-    const app = createApp();
+    const dependencies = await createAppDependencies({
+      port: 3001,
+      databaseUrl: '',
+      persistenceDriver: 'memory',
+      corsOrigin: '*',
+    });
+    const app = createApp({ dependencies, corsOrigin: '*' });
 
     const response = await request(app).get('/health');
 
@@ -12,4 +19,3 @@ describe('GET /health', () => {
     expect(response.body).toEqual({ status: 'ok' });
   });
 });
-

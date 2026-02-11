@@ -1,0 +1,4 @@
+export const TARGET_INTENSITY_2025 = 89.3368;
+export const ENERGY_FACTOR_MJ_PER_TONNE = 41000;
+export const FLOATING_POINT_TOLERANCE = 1e-9;
+
