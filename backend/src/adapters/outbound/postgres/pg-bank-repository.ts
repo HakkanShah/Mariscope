@@ -14,14 +14,15 @@ interface BankRecordRow {
 export class PgBankRepository implements BankRepository {
   public constructor(private readonly pool: Pool) {}
 
-  public async getBankedAmount(shipId: string, year: number): Promise<number> {
+  public async getBankedAmount(_shipId: string, _year: number): Promise<number> {
+    void _shipId;
+    void _year;
+    // Banking balance is maintained as a shared ledger across all entries.
     const result = await this.pool.query<{ banked_total: number }>(
       `
       SELECT COALESCE(SUM(CASE WHEN entry_type = 'bank' THEN amount_gco2eq ELSE -amount_gco2eq END), 0) AS banked_total
       FROM bank_entries
-      WHERE ship_id = $1 AND year = $2
       `,
-      [shipId, year],
     );
 
     const total = result.rows[0]?.banked_total ?? 0;

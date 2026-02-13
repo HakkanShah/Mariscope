@@ -171,6 +171,25 @@ describe('API integration', () => {
     expect(body.applied).toBe(500_000);
   });
 
+  it('POST /banking/apply uses banked ledger balance from another ship', async () => {
+    await dependencies.bankRepository.saveRecord({
+      shipId: 'R002',
+      year: 2024,
+      entryType: 'bank',
+      amount: 600_000,
+    });
+
+    const response = await request(app).post('/banking/apply').send({
+      shipId: 'R003',
+      amountToApply: 200_000,
+    });
+    const body = response.body as ApplyResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.shipId).toBe('R003');
+    expect(body.applied).toBe(200_000);
+  });
+
   it('GET /banking/records returns records', async () => {
     await request(app).post('/banking/bank').send({
       shipId: 'R002',
@@ -183,6 +202,19 @@ describe('API integration', () => {
     expect(response.status).toBe(200);
     expect(body.records).toHaveLength(1);
     expect(body.currentBankedAmount).toBe(100);
+  });
+
+  it('GET /banking/records returns current ledger balance for year filter', async () => {
+    await request(app).post('/banking/bank').send({
+      shipId: 'R002',
+      amountToBank: 120,
+    });
+
+    const response = await request(app).get('/banking/records').query({ year: 2024 });
+    const body = response.body as BankingRecordsResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.currentBankedAmount).toBe(120);
   });
 
   it('GET /compliance/adjusted-cb returns adjusted records', async () => {

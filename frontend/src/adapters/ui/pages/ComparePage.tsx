@@ -18,9 +18,45 @@ import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 export const ComparePage = () => {
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [year, setYear] = useState<string>('2024');
+  const [year, setYear] = useState<string>('');
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [baselineYears, setBaselineYears] = useState<number[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadYearMetadata = useCallback(async () => {
+    try {
+      setMetaLoading(true);
+      setError(null);
+
+      const routes = await frontendUseCases.getRoutes.execute();
+      const years = Array.from(new Set(routes.map((route) => route.year))).sort((a, b) => a - b);
+      const yearsWithBaseline = Array.from(
+        new Set(routes.filter((route) => route.isBaseline).map((route) => route.year)),
+      ).sort((a, b) => a - b);
+
+      setAvailableYears(years);
+      setBaselineYears(yearsWithBaseline);
+
+      const preferredYear = yearsWithBaseline[0] ?? years[0];
+      setYear((current) => {
+        if (current.length > 0 && years.includes(Number(current))) {
+          return current;
+        }
+
+        return preferredYear === undefined ? '' : String(preferredYear);
+      });
+    } catch (requestError) {
+      setAvailableYears([]);
+      setBaselineYears([]);
+      setYear('');
+      setComparison(null);
+      setError(formatUserError(requestError));
+    } finally {
+      setMetaLoading(false);
+    }
+  }, []);
 
   const loadComparison = useCallback(async (selectedYear?: number) => {
     try {
@@ -37,8 +73,30 @@ export const ComparePage = () => {
   }, []);
 
   useEffect(() => {
-    void loadComparison(Number(year));
-  }, [loadComparison, year]);
+    void loadYearMetadata();
+  }, [loadYearMetadata]);
+
+  useEffect(() => {
+    if (metaLoading) {
+      return;
+    }
+
+    if (year.length === 0) {
+      setLoading(false);
+      setComparison(null);
+      return;
+    }
+
+    const selectedYear = Number(year);
+    if (!baselineYears.includes(selectedYear)) {
+      setLoading(false);
+      setComparison(null);
+      setError(`No baseline route is configured for ${selectedYear}. Set baseline in Routes first.`);
+      return;
+    }
+
+    void loadComparison(selectedYear);
+  }, [baselineYears, loadComparison, metaLoading, year]);
 
   const chartData = useMemo(() => {
     if (!comparison) {
@@ -71,16 +129,23 @@ export const ComparePage = () => {
             value={year}
             onChange={(event) => setYear(event.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            disabled={metaLoading || availableYears.length === 0}
           >
-            <option value="2024">2024</option>
-            <option value="2025">2025</option>
+            {availableYears.map((yearOption) => (
+              <option key={yearOption} value={yearOption}>
+                {baselineYears.includes(yearOption)
+                  ? String(yearOption)
+                  : `${yearOption} (set baseline first)`}
+              </option>
+            ))}
           </select>
           <button
             type="button"
             onClick={() => {
-              void loadComparison(Number(year));
+              void loadYearMetadata();
             }}
             className="button-muted"
+            disabled={metaLoading}
           >
             Reload
           </button>
@@ -90,9 +155,9 @@ export const ComparePage = () => {
       {error ? (
         <AlertBanner title="Comparison failed" message={error} variant="error" onDismiss={() => setError(null)} />
       ) : null}
-      {loading ? <LoadingBlock label="Loading comparison data..." /> : null}
+      {metaLoading || loading ? <LoadingBlock label="Loading comparison data..." /> : null}
 
-      {!loading && comparison ? (
+      {!metaLoading && !loading && comparison ? (
         <>
           <div className="section-card space-y-1 text-sm text-slate-700">
             <p>

@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ComparisonResult } from '../../../core/domain';
+import type { ComparisonResult, RouteModel } from '../../../core/domain';
 import { ComparePage } from './ComparePage';
 
 const mockedUseCases = vi.hoisted(() => ({
   computeComparisonExecute: vi.fn(),
+  getRoutesExecute: vi.fn(),
 }));
 
 vi.mock('../../infrastructure/api/use-cases', () => ({
@@ -13,8 +14,36 @@ vi.mock('../../infrastructure/api/use-cases', () => ({
     computeComparison: {
       execute: mockedUseCases.computeComparisonExecute,
     },
+    getRoutes: {
+      execute: mockedUseCases.getRoutesExecute,
+    },
   },
 }));
+
+const routesFixture: RouteModel[] = [
+  {
+    id: 'R-101',
+    vesselType: 'Container',
+    fuelType: 'HFO',
+    year: 2024,
+    ghgIntensityGco2ePerMj: 88.12,
+    fuelConsumptionTonnes: 1000,
+    distanceKm: 1000,
+    totalEmissionsTonnes: 800,
+    isBaseline: true,
+  },
+  {
+    id: 'R-202',
+    vesselType: 'BulkCarrier',
+    fuelType: 'LNG',
+    year: 2025,
+    ghgIntensityGco2ePerMj: 92.33,
+    fuelConsumptionTonnes: 1200,
+    distanceKm: 1300,
+    totalEmissionsTonnes: 950,
+    isBaseline: false,
+  },
+];
 
 const comparisonFixture: ComparisonResult = {
   baseline: {
@@ -43,7 +72,9 @@ const comparisonFixture: ComparisonResult = {
 
 describe('ComparePage', () => {
   beforeEach(() => {
+    mockedUseCases.getRoutesExecute.mockReset();
     mockedUseCases.computeComparisonExecute.mockReset();
+    mockedUseCases.getRoutesExecute.mockResolvedValue(routesFixture);
     mockedUseCases.computeComparisonExecute.mockResolvedValue(comparisonFixture);
   });
 
@@ -56,7 +87,7 @@ describe('ComparePage', () => {
     expect(screen.getByText('Non-compliant')).toBeInTheDocument();
   });
 
-  it('reloads data using the selected year', async () => {
+  it('shows a baseline guidance message for years without baseline', async () => {
     render(<ComparePage />);
     await screen.findByText('R-101');
 
@@ -65,13 +96,11 @@ describe('ComparePage', () => {
     });
 
     await waitFor(() => {
-      expect(mockedUseCases.computeComparisonExecute).toHaveBeenLastCalledWith(2025);
+      expect(
+        screen.getByText('No baseline route is configured for 2025. Set baseline in Routes first.'),
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
-
-    await waitFor(() => {
-      expect(mockedUseCases.computeComparisonExecute).toHaveBeenLastCalledWith(2025);
-    });
+    expect(mockedUseCases.computeComparisonExecute).not.toHaveBeenCalledWith(2025);
   });
 });

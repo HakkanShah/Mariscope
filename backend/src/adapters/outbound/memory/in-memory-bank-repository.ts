@@ -3,9 +3,11 @@ import type { BankRecord, BankRepository, SaveBankRecordInput } from '../../../c
 export class InMemoryBankRepository implements BankRepository {
   private records: BankRecord[] = [];
 
-  public getBankedAmount(shipId: string, year: number): Promise<number> {
+  public getBankedAmount(_shipId: string, _year: number): Promise<number> {
+    void _shipId;
+    void _year;
+    // Banking balance is maintained as a shared ledger across all entries.
     const totals = this.records
-      .filter((record) => record.shipId === shipId && record.year === year)
       .reduce(
         (accumulator, record) => {
           if (record.entryType === 'bank') {

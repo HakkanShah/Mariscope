@@ -43,13 +43,8 @@ export const BankingPage = () => {
     setSelectedShipId((current) => current || data[0]?.shipId || '');
   }, []);
 
-  const loadRecords = useCallback(async (shipId: string, year: number) => {
-    if (shipId.length === 0) {
-      setRecordsResult(null);
-      return;
-    }
-
-    const data = await frontendUseCases.getBankingRecords.execute({ shipId, year });
+  const loadRecords = useCallback(async (year: number) => {
+    const data = await frontendUseCases.getBankingRecords.execute({ year });
     setRecordsResult(data);
   }, []);
 
@@ -88,21 +83,21 @@ export const BankingPage = () => {
   }, [loadCompliance, loading, selectedYear]);
 
   useEffect(() => {
-    if (selectedShipId.length === 0) {
+    if (loading) {
       return;
     }
 
     const run = async () => {
       try {
         setError(null);
-        await loadRecords(selectedShipId, selectedYear);
+        await loadRecords(selectedYear);
       } catch (requestError) {
         setError(formatUserError(requestError));
       }
     };
 
     void run();
-  }, [loadRecords, selectedShipId, selectedYear]);
+  }, [loadRecords, loading, selectedYear]);
 
   const selectedCompliance = useMemo(
     () => complianceRows.find((row) => row.shipId === selectedShipId) ?? null,
@@ -125,7 +120,7 @@ export const BankingPage = () => {
       const result = await frontendUseCases.bankSurplus.execute(selectedShipId, parsedAmount);
       setBankResult(result);
       setSuccess(`Banked ${result.bankedAmount.toFixed(2)} for ${result.shipId}`);
-      await loadRecords(selectedShipId, selectedYear);
+      await loadRecords(selectedYear);
     } catch (requestError) {
       setError(formatUserError(requestError));
     } finally {
@@ -152,7 +147,7 @@ export const BankingPage = () => {
       const result = await frontendUseCases.applyBanked.execute(selectedShipId, parsedAmount);
       setApplyResult(result);
       setSuccess(`Applied ${result.applied.toFixed(2)} to ${result.shipId}`);
-      await loadRecords(selectedShipId, selectedYear);
+      await loadRecords(selectedYear);
     } catch (requestError) {
       setError(formatUserError(requestError));
     } finally {
@@ -308,7 +303,7 @@ export const BankingPage = () => {
           ) : null}
 
           <div className="section-card overflow-x-auto">
-            <p className="mb-3 text-sm font-semibold text-slate-800">Bank Records</p>
+            <p className="mb-3 text-sm font-semibold text-slate-800">Year Ledger Records</p>
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
                 <tr>

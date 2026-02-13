@@ -16,8 +16,9 @@ export class GetBankingRecordsUseCase {
   public async execute(input?: GetBankingRecordsInput): Promise<GetBankingRecordsOutput> {
     const records = await this.bankRepository.getRecords(input);
 
-    if (input?.shipId !== undefined && input.year !== undefined) {
-      const currentBankedAmount = await this.bankRepository.getBankedAmount(input.shipId, input.year);
+    if (input?.year !== undefined) {
+      const ledgerScope = input.shipId ?? 'fleet-ledger';
+      const currentBankedAmount = await this.bankRepository.getBankedAmount(ledgerScope, input.year);
       return {
         records,
         currentBankedAmount,

@@ -99,12 +99,8 @@ describe('BankingPage', () => {
     mockedUseCases.getRoutesExecute.mockResolvedValue(routesFixture);
     mockedUseCases.computeCBExecute.mockResolvedValue(complianceFixture);
     mockedUseCases.getBankingRecordsExecute.mockImplementation(
-      (filters?: { shipId?: string; year?: number }): Promise<BankingRecordsResponse> => {
-        if (filters?.shipId === 'SHIP-B') {
-          return Promise.resolve({ records: [], currentBankedAmount: 120 });
-        }
-        return Promise.resolve({ records: [], currentBankedAmount: 0 });
-      },
+      (): Promise<BankingRecordsResponse> =>
+        Promise.resolve({ records: [], currentBankedAmount: 120 }),
     );
     mockedUseCases.bankSurplusExecute.mockResolvedValue(bankResponseFixture);
     mockedUseCases.applyBankedExecute.mockResolvedValue(applyResponseFixture);
@@ -145,7 +141,6 @@ describe('BankingPage', () => {
 
     await waitFor(() => {
       expect(mockedUseCases.getBankingRecordsExecute).toHaveBeenLastCalledWith({
-        shipId: 'SHIP-B',
         year: 2024,
       });
     });
