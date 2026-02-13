@@ -6,13 +6,14 @@ import type { RouteRepository } from '../ports/route-repository.js';
 import { NotFoundError } from './errors/application-error.js';
 
 export interface ComputedRouteCompliance {
-  routeId: string;
-  routeName: string;
+  shipId: string;
+  year: number;
   result: ComplianceBalanceResult;
 }
 
 export interface ComputeCBInput {
-  routeIds?: string[];
+  shipId?: string;
+  year?: number;
 }
 
 export class ComputeCBUseCase {
@@ -22,18 +23,16 @@ export class ComputeCBUseCase {
   ) {}
 
   public async execute(input?: ComputeCBInput): Promise<ComputedRouteCompliance[]> {
-    const routes = input?.routeIds
-      ? await this.getRoutesByIds(input.routeIds)
-      : await this.routeRepository.getAll();
+    const routes = await this.getRoutesByFilter(input);
 
     const results: ComputedRouteCompliance[] = [];
 
     for (const route of routes) {
       const result = ComplianceBalance.fromRoute(route);
-      await this.complianceRepository.saveForRoute(route.id, result);
+      await this.complianceRepository.saveForShipYear(route.id, route.year, result);
       results.push({
-        routeId: route.id,
-        routeName: route.name,
+        shipId: route.id,
+        year: route.year,
         result,
       });
     }
@@ -41,17 +40,26 @@ export class ComputeCBUseCase {
     return results;
   }
 
-  private async getRoutesByIds(routeIds: string[]) {
-    const routes: Route[] = [];
-
-    for (const routeId of routeIds) {
-      const route = await this.routeRepository.getById(routeId);
+  private async getRoutesByFilter(input?: ComputeCBInput): Promise<Route[]> {
+    if (input?.shipId) {
+      const route = await this.routeRepository.getById(input.shipId);
       if (!route) {
-        throw new NotFoundError(`Route not found: ${routeId}`);
+        throw new NotFoundError(`Route not found: ${input.shipId}`);
       }
-      routes.push(route);
+
+      if (input.year !== undefined && route.year !== input.year) {
+        return [];
+      }
+
+      return [route];
     }
 
-    return routes;
+    return this.routeRepository.getAll(
+      input?.year === undefined
+        ? undefined
+        : {
+            year: input.year,
+          },
+    );
   }
 }

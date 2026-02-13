@@ -19,7 +19,7 @@ describe('ComplianceBalance', () => {
     expect(ComplianceBalance.isSurplus(result.complianceBalance)).toBe(true);
   });
 
-  it('computes deficit and percent difference from target', () => {
+  it('computes deficit when actual is above target', () => {
     const result = ComplianceBalance.calculate({
       targetIntensityGco2ePerMj: 89.3368,
       actualIntensityGco2ePerMj: 92,
@@ -27,7 +27,6 @@ describe('ComplianceBalance', () => {
     });
 
     expect(result.complianceBalance).toBeCloseTo((89.3368 - 92) * 820_000, 6);
-    expect(result.percentDifferenceFromTarget).toBeCloseTo(((92 - 89.3368) / 89.3368) * 100, 6);
     expect(ComplianceBalance.isDeficit(result.complianceBalance)).toBe(true);
   });
 
@@ -48,4 +47,3 @@ describe('ComplianceBalance', () => {
     ).toThrowError(DomainValidationError);
   });
 });
-

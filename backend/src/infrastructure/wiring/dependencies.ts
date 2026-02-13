@@ -4,7 +4,10 @@ import {
   ApplyBankedUseCase,
   BankSurplusUseCase,
   ComputeCBUseCase,
+  ComputeComparisonUseCase,
   CreatePoolUseCase,
+  GetAdjustedCBUseCase,
+  GetBankingRecordsUseCase,
   GetRoutesUseCase,
   SetBaselineUseCase,
 } from '../../core/application/index.js';
@@ -41,8 +44,11 @@ export interface AppDependencies {
     getRoutes: GetRoutesUseCase;
     setBaseline: SetBaselineUseCase;
     computeCB: ComputeCBUseCase;
+    computeComparison: ComputeComparisonUseCase;
+    getAdjustedCB: GetAdjustedCBUseCase;
     bankSurplus: BankSurplusUseCase;
     applyBanked: ApplyBankedUseCase;
+    getBankingRecords: GetBankingRecordsUseCase;
     createPool: CreatePoolUseCase;
   };
 }
@@ -57,9 +63,16 @@ const createUseCases = (repositories: {
     getRoutes: new GetRoutesUseCase(repositories.routeRepository),
     setBaseline: new SetBaselineUseCase(repositories.routeRepository),
     computeCB: new ComputeCBUseCase(repositories.routeRepository, repositories.complianceRepository),
+    computeComparison: new ComputeComparisonUseCase(repositories.routeRepository),
+    getAdjustedCB: new GetAdjustedCBUseCase(repositories.routeRepository, repositories.bankRepository),
     bankSurplus: new BankSurplusUseCase(repositories.routeRepository, repositories.bankRepository),
     applyBanked: new ApplyBankedUseCase(repositories.routeRepository, repositories.bankRepository),
-    createPool: new CreatePoolUseCase(repositories.routeRepository, repositories.poolRepository),
+    getBankingRecords: new GetBankingRecordsUseCase(repositories.bankRepository),
+    createPool: new CreatePoolUseCase(
+      repositories.routeRepository,
+      repositories.bankRepository,
+      repositories.poolRepository,
+    ),
   };
 };
 
@@ -113,4 +126,3 @@ export const createAppDependencies = async (config: AppConfig): Promise<AppDepen
     useCases: createUseCases(repositories),
   };
 };
-

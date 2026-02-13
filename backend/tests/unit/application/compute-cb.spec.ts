@@ -10,27 +10,28 @@ describe('ComputeCBUseCase', () => {
     const result = await context.useCases.computeCB.execute();
 
     expect(result).toHaveLength(5);
-    expect(result[0]?.routeId).toBe('route-1');
+    expect(result[0]?.shipId).toBe('R001');
     expect(result[0]?.result).toHaveProperty('complianceBalance');
   });
 
-  it('computes compliance for selected route IDs', async () => {
+  it('computes compliance for selected ship and year', async () => {
     const context = createApplicationTestContext();
 
     const result = await context.useCases.computeCB.execute({
-      routeIds: ['route-1', 'route-2'],
+      shipId: 'R002',
+      year: 2024,
     });
 
-    expect(result).toHaveLength(2);
-    expect(result[1]?.routeId).toBe('route-2');
+    expect(result).toHaveLength(1);
+    expect(result[0]?.shipId).toBe('R002');
   });
 
-  it('throws when a requested route ID does not exist', async () => {
+  it('throws when requested ship does not exist', async () => {
     const context = createApplicationTestContext();
 
     await expect(
       context.useCases.computeCB.execute({
-        routeIds: ['route-1', 'missing-route'],
+        shipId: 'missing-route',
       }),
     ).rejects.toThrowError(NotFoundError);
   });

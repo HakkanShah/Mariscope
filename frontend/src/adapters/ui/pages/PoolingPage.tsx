@@ -1,59 +1,61 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ComplianceRouteRecord, CreatePoolResponse } from '../../../core/domain';
+import type { AdjustedComplianceRecord, CreatePoolResponse } from '../../../core/domain';
 import { frontendUseCases } from '../../infrastructure/api/use-cases';
 import { formatUserError } from '../../../shared/errors/format-user-error';
 import { AlertBanner } from '../../../shared/ui/AlertBanner';
 import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 export const PoolingPage = () => {
-  const [complianceRows, setComplianceRows] = useState<ComplianceRouteRecord[]>([]);
+  const [adjustedRows, setAdjustedRows] = useState<AdjustedComplianceRecord[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [poolResult, setPoolResult] = useState<CreatePoolResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [poolingInProgress, setPoolingInProgress] = useState(false);
+  const [year, setYear] = useState(2024);
 
-  const loadCompliance = useCallback(async () => {
+  const loadAdjusted = useCallback(async (selectedYear: number) => {
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      console.info('[frontend][pooling] loading compliance for pool builder');
-      const data = await frontendUseCases.computeCB.execute();
-      setComplianceRows(data);
+      const data = await frontendUseCases.getAdjustedCB.execute({ year: selectedYear });
+      setAdjustedRows(data);
       setSelected(
         data.reduce<Record<string, boolean>>((acc, row) => {
-          acc[row.routeId] = true;
+          acc[row.shipId] = true;
           return acc;
         }, {}),
       );
-      console.info('[frontend][pooling] compliance rows loaded', { count: data.length });
     } catch (requestError) {
-      const message = formatUserError(requestError);
-      console.error('[frontend][pooling] load failed', { message, requestError });
-      setError(message);
+      setError(formatUserError(requestError));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadCompliance();
-  }, [loadCompliance]);
+    void loadAdjusted(year);
+  }, [loadAdjusted, year]);
 
-  const selectedCount = useMemo(() => {
-    return Object.values(selected).filter(Boolean).length;
+  const selectedShipIds = useMemo(() => {
+    return Object.entries(selected)
+      .filter(([, included]) => included)
+      .map(([shipId]) => shipId);
   }, [selected]);
 
-  const handleCreatePool = async () => {
-    const routeIds = Object.entries(selected)
-      .filter(([, included]) => included)
-      .map(([routeId]) => routeId);
+  const poolSum = useMemo(() => {
+    const selectedIds = new Set(selectedShipIds);
+    return adjustedRows
+      .filter((row) => selectedIds.has(row.shipId))
+      .reduce((sum, row) => sum + row.adjustedCb, 0);
+  }, [adjustedRows, selectedShipIds]);
 
-    if (routeIds.length === 0) {
-      setError('Select at least one route');
+  const handleCreatePool = async () => {
+    if (selectedShipIds.length === 0) {
+      setError('Select at least one ship');
       setSuccess(null);
       return;
     }
@@ -62,15 +64,11 @@ export const PoolingPage = () => {
       setError(null);
       setSuccess(null);
       setPoolingInProgress(true);
-      console.info('[frontend][pooling] create pool start', { routeIds });
-      const result = await frontendUseCases.createPool.execute(routeIds);
+      const result = await frontendUseCases.createPool.execute(year, selectedShipIds);
       setPoolResult(result);
       setSuccess(`Pool ${result.poolId} created successfully`);
-      console.info('[frontend][pooling] create pool success', { poolId: result.poolId });
     } catch (requestError) {
-      const message = formatUserError(requestError);
-      console.error('[frontend][pooling] create pool failed', { message, requestError });
-      setError(message);
+      setError(formatUserError(requestError));
     } finally {
       setPoolingInProgress(false);
     }
@@ -82,28 +80,42 @@ export const PoolingPage = () => {
         <div className="space-y-2">
           <h2 className="text-2xl font-semibold">Pooling</h2>
           <p className="text-sm text-slate-600 md:text-base">
-            Build a compliance pool (Article 21) with greedy surplus allocation across selected routes.
+            Create a valid Article 21 pool with adjusted CB members and greedy allocation.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void loadCompliance();
-          }}
-          className="button-muted"
-        >
-          Recompute
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          >
+            <option value={2024}>2024</option>
+            <option value={2025}>2025</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              void loadAdjusted(year);
+            }}
+            className="button-muted"
+          >
+            Reload
+          </button>
+        </div>
       </div>
 
       <div className="section-card flex flex-wrap items-center justify-between gap-3 bg-white/70">
         <p className="text-sm text-slate-600">
-          Selected routes: <span className="font-semibold text-slate-900">{selectedCount}</span>
+          Selected ships: <span className="font-semibold text-slate-900">{selectedShipIds.length}</span>
         </p>
-        <p className="text-xs text-slate-500">Tip: include both surplus and deficit routes for useful pooling.</p>
+        <p className={`text-sm font-semibold ${poolSum >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+          Pool Sum: {poolSum.toFixed(2)}
+        </p>
       </div>
 
-      {error ? <AlertBanner title="Pooling request failed" message={error} variant="error" onDismiss={() => setError(null)} /> : null}
+      {error ? (
+        <AlertBanner title="Pooling request failed" message={error} variant="error" onDismiss={() => setError(null)} />
+      ) : null}
       {success ? (
         <AlertBanner
           title="Pool created"
@@ -112,7 +124,7 @@ export const PoolingPage = () => {
           onDismiss={() => setSuccess(null)}
         />
       ) : null}
-      {loading ? <LoadingBlock label="Loading compliance data..." /> : null}
+      {loading ? <LoadingBlock label="Loading adjusted compliance data..." /> : null}
 
       {!loading ? (
         <div className="section-card overflow-x-auto">
@@ -120,28 +132,34 @@ export const PoolingPage = () => {
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
               <tr>
                 <th className="px-3 py-2">Include</th>
-                <th className="px-3 py-2">Route</th>
-                <th className="px-3 py-2">Current CB</th>
+                <th className="px-3 py-2">Ship</th>
+                <th className="px-3 py-2">CB Before</th>
+                <th className="px-3 py-2">Applied</th>
+                <th className="px-3 py-2">Adjusted CB</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {complianceRows.map((row) => (
-                <tr key={row.routeId}>
+              {adjustedRows.map((row) => (
+                <tr key={row.shipId}>
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
-                      checked={selected[row.routeId] ?? false}
+                      checked={selected[row.shipId] ?? false}
                       onChange={(event) => {
                         setSelected((current) => ({
                           ...current,
-                          [row.routeId]: event.target.checked,
+                          [row.shipId]: event.target.checked,
                         }));
                       }}
                     />
                   </td>
-                  <td className="px-3 py-2">{row.routeName}</td>
-                  <td className={`px-3 py-2 ${row.complianceBalance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {row.complianceBalance.toFixed(2)}
+                  <td className="px-3 py-2">{row.shipId}</td>
+                  <td className={`px-3 py-2 ${row.cbBefore >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {row.cbBefore.toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-cyan-800">{row.applied.toFixed(2)}</td>
+                  <td className={`px-3 py-2 ${row.adjustedCb >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {row.adjustedCb.toFixed(2)}
                   </td>
                 </tr>
               ))}
@@ -156,7 +174,7 @@ export const PoolingPage = () => {
           void handleCreatePool();
         }}
         className="button-primary"
-        disabled={poolingInProgress}
+        disabled={poolingInProgress || selectedShipIds.length === 0 || poolSum < 0}
       >
         {poolingInProgress ? 'Creating pool...' : 'Create Pool'}
       </button>
@@ -165,6 +183,9 @@ export const PoolingPage = () => {
         <div className="section-card space-y-2 bg-cyan-50/60">
           <p className="text-sm font-semibold text-slate-900">
             Pool {poolResult.poolId} created at {new Date(poolResult.createdAt).toLocaleString()}
+          </p>
+          <p className="text-xs text-slate-600">
+            Sum Before: {poolResult.poolSumBefore.toFixed(2)} | Sum After: {poolResult.poolSumAfter.toFixed(2)}
           </p>
           <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table className="min-w-full divide-y divide-slate-200 text-sm">

@@ -1,7 +1,9 @@
 export * from './apply-banked';
 export * from './bank-surplus';
 export * from './compute-cb';
+export * from './compute-comparison';
 export * from './create-pool';
+export * from './get-adjusted-cb';
+export * from './get-banking-records';
 export * from './get-routes';
 export * from './set-baseline';
-

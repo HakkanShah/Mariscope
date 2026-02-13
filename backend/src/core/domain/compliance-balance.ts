@@ -17,7 +17,6 @@ export interface ComplianceBalanceResult {
   fuelConsumptionTonnes: number;
   energyInScopeMj: number;
   complianceBalance: number;
-  percentDifferenceFromTarget: number;
 }
 
 const validatePositiveNumber = (value: number, fieldName: string): void => {
@@ -42,8 +41,6 @@ export class ComplianceBalance {
 
     const energyInScopeMj = input.fuelConsumptionTonnes * 41000;
     const complianceBalance = (targetIntensity - input.actualIntensityGco2ePerMj) * energyInScopeMj;
-    const percentDifferenceFromTarget =
-      ((input.actualIntensityGco2ePerMj - targetIntensity) / targetIntensity) * 100;
 
     return {
       targetIntensityGco2ePerMj: targetIntensity,
@@ -51,13 +48,12 @@ export class ComplianceBalance {
       fuelConsumptionTonnes: input.fuelConsumptionTonnes,
       energyInScopeMj,
       complianceBalance,
-      percentDifferenceFromTarget,
     };
   }
 
   public static fromRoute(route: Route, targetIntensityGco2ePerMj?: number): ComplianceBalanceResult {
     const input: ComplianceBalanceInput = {
-      actualIntensityGco2ePerMj: route.actualIntensityGco2ePerMj,
+      actualIntensityGco2ePerMj: route.ghgIntensityGco2ePerMj,
       fuelConsumptionTonnes: route.fuelConsumptionTonnes,
     };
 

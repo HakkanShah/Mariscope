@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ApplyBankedResponse, BankSurplusResponse, RouteModel } from '../../../core/domain';
+import type {
+  ApplyBankedResponse,
+  BankSurplusResponse,
+  BankingRecordsResponse,
+  ComplianceCBRecord,
+  RouteModel,
+} from '../../../core/domain';
 import { frontendUseCases } from '../../infrastructure/api/use-cases';
 import { formatUserError } from '../../../shared/errors/format-user-error';
 import { AlertBanner } from '../../../shared/ui/AlertBanner';
@@ -8,9 +14,12 @@ import { LoadingBlock } from '../../../shared/ui/LoadingBlock';
 
 export const BankingPage = () => {
   const [routes, setRoutes] = useState<RouteModel[]>([]);
-  const [selectedRouteId, setSelectedRouteId] = useState('');
+  const [complianceRows, setComplianceRows] = useState<ComplianceCBRecord[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(2024);
+  const [selectedShipId, setSelectedShipId] = useState('');
   const [bankAmount, setBankAmount] = useState('');
   const [applyAmount, setApplyAmount] = useState('');
+  const [recordsResult, setRecordsResult] = useState<BankingRecordsResponse | null>(null);
   const [bankResult, setBankResult] = useState<BankSurplusResponse | null>(null);
   const [applyResult, setApplyResult] = useState<ApplyBankedResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,30 +29,91 @@ export const BankingPage = () => {
   const [applyInProgress, setApplyInProgress] = useState(false);
 
   const loadRoutes = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      console.info('[frontend][banking] loading routes');
-      const data = await frontendUseCases.getRoutes.execute();
-      setRoutes(data);
-      setSelectedRouteId((current) => current || data[0]?.id || '');
-      console.info('[frontend][banking] routes loaded', { count: data.length });
-    } catch (requestError) {
-      const message = formatUserError(requestError);
-      console.error('[frontend][banking] route load failed', { message, requestError });
-      setError(message);
-    } finally {
-      setLoading(false);
+    const data = await frontendUseCases.getRoutes.execute();
+    setRoutes(data);
+
+    const years = Array.from(new Set(data.map((route) => route.year))).sort((a, b) => a - b);
+    const nextYear = years[0] ?? 2024;
+    setSelectedYear(nextYear);
+  }, []);
+
+  const loadCompliance = useCallback(async (year: number) => {
+    const data = await frontendUseCases.computeCB.execute({ year });
+    setComplianceRows(data);
+    setSelectedShipId((current) => current || data[0]?.shipId || '');
+  }, []);
+
+  const loadRecords = useCallback(async (shipId: string, year: number) => {
+    if (shipId.length === 0) {
+      setRecordsResult(null);
+      return;
     }
+
+    const data = await frontendUseCases.getBankingRecords.execute({ shipId, year });
+    setRecordsResult(data);
   }, []);
 
   useEffect(() => {
-    void loadRoutes();
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        setSuccess(null);
+        await loadRoutes();
+      } catch (requestError) {
+        setError(formatUserError(requestError));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
   }, [loadRoutes]);
 
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const run = async () => {
+      try {
+        setError(null);
+        await loadCompliance(selectedYear);
+      } catch (requestError) {
+        setError(formatUserError(requestError));
+      }
+    };
+
+    void run();
+  }, [loadCompliance, loading, selectedYear]);
+
+  useEffect(() => {
+    if (selectedShipId.length === 0) {
+      return;
+    }
+
+    const run = async () => {
+      try {
+        setError(null);
+        await loadRecords(selectedShipId, selectedYear);
+      } catch (requestError) {
+        setError(formatUserError(requestError));
+      }
+    };
+
+    void run();
+  }, [loadRecords, selectedShipId, selectedYear]);
+
+  const selectedCompliance = useMemo(
+    () => complianceRows.find((row) => row.shipId === selectedShipId) ?? null,
+    [complianceRows, selectedShipId],
+  );
+
+  const canBank = (selectedCompliance?.cb ?? 0) > 0;
+  const canApply = (selectedCompliance?.cb ?? 0) < 0 && (recordsResult?.currentBankedAmount ?? 0) > 0;
+
   const handleBank = async () => {
-    if (selectedRouteId.length === 0) {
+    if (selectedShipId.length === 0) {
       return;
     }
 
@@ -52,22 +122,19 @@ export const BankingPage = () => {
       setSuccess(null);
       setBankingInProgress(true);
       const parsedAmount = bankAmount.trim().length > 0 ? Number(bankAmount) : undefined;
-      console.info('[frontend][banking] bank action start', { selectedRouteId, parsedAmount });
-      const result = await frontendUseCases.bankSurplus.execute(selectedRouteId, parsedAmount);
+      const result = await frontendUseCases.bankSurplus.execute(selectedShipId, parsedAmount);
       setBankResult(result);
-      setSuccess(`Banked ${result.bankedAmount.toFixed(2)} for ${result.routeId}`);
-      console.info('[frontend][banking] bank action success', result);
+      setSuccess(`Banked ${result.bankedAmount.toFixed(2)} for ${result.shipId}`);
+      await loadRecords(selectedShipId, selectedYear);
     } catch (requestError) {
-      const message = formatUserError(requestError);
-      console.error('[frontend][banking] bank action failed', { message, requestError });
-      setError(message);
+      setError(formatUserError(requestError));
     } finally {
       setBankingInProgress(false);
     }
   };
 
   const handleApply = async () => {
-    if (selectedRouteId.length === 0) {
+    if (selectedShipId.length === 0) {
       return;
     }
 
@@ -82,30 +149,31 @@ export const BankingPage = () => {
       setError(null);
       setSuccess(null);
       setApplyInProgress(true);
-      console.info('[frontend][banking] apply action start', { selectedRouteId, parsedAmount });
-      const result = await frontendUseCases.applyBanked.execute(selectedRouteId, parsedAmount);
+      const result = await frontendUseCases.applyBanked.execute(selectedShipId, parsedAmount);
       setApplyResult(result);
-      setSuccess(`Applied ${result.appliedAmount.toFixed(2)} for ${result.routeId}`);
-      console.info('[frontend][banking] apply action success', result);
+      setSuccess(`Applied ${result.applied.toFixed(2)} to ${result.shipId}`);
+      await loadRecords(selectedShipId, selectedYear);
     } catch (requestError) {
-      const message = formatUserError(requestError);
-      console.error('[frontend][banking] apply action failed', { message, requestError });
-      setError(message);
+      setError(formatUserError(requestError));
     } finally {
       setApplyInProgress(false);
     }
   };
+
+  const yearOptions = Array.from(new Set(routes.map((route) => route.year))).sort((a, b) => a - b);
 
   return (
     <div className="space-y-5">
       <div className="space-y-2">
         <h2 className="text-2xl font-semibold">Banking</h2>
         <p className="text-sm text-slate-600 md:text-base">
-          Execute Article 20 flows by banking a route surplus and applying banked amounts to deficits.
+          Run Article 20 actions with current CB, banked amount records, and apply KPIs.
         </p>
       </div>
 
-      {error ? <AlertBanner title="Banking request failed" message={error} variant="error" onDismiss={() => setError(null)} /> : null}
+      {error ? (
+        <AlertBanner title="Banking request failed" message={error} variant="error" onDismiss={() => setError(null)} />
+      ) : null}
       {success ? (
         <AlertBanner
           title="Action successful"
@@ -118,96 +186,149 @@ export const BankingPage = () => {
       {loading ? <LoadingBlock label="Loading route options..." /> : null}
 
       {!loading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <section className="section-card space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Bank Surplus</h3>
-            <label className="block text-sm text-slate-700">
-              Route
+        <>
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="text-sm text-slate-700">
+              Year
               <select
-                value={selectedRouteId}
+                value={selectedYear}
                 onChange={(event) => {
-                  setSelectedRouteId(event.target.value);
+                  setSelectedYear(Number(event.target.value));
+                  setBankResult(null);
+                  setApplyResult(null);
                 }}
                 className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5"
               >
-                {routes.map((route) => (
-                  <option key={route.id} value={route.id}>
-                    {route.name}
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="block text-sm text-slate-700">
-              Amount to bank (optional, defaults to full surplus)
-              <input
-                type="number"
-                step="0.01"
-                value={bankAmount}
+
+            <label className="text-sm text-slate-700 md:col-span-2">
+              Ship
+              <select
+                value={selectedShipId}
                 onChange={(event) => {
-                  setBankAmount(event.target.value);
+                  setSelectedShipId(event.target.value);
+                  setBankResult(null);
+                  setApplyResult(null);
                 }}
                 className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5"
-              />
+              >
+                {complianceRows.map((row) => (
+                  <option key={row.shipId} value={row.shipId}>
+                    {row.shipId}
+                  </option>
+                ))}
+              </select>
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                void handleBank();
-              }}
-              className="button-primary"
-              disabled={bankingInProgress}
-            >
-              {bankingInProgress ? 'Banking...' : 'Bank'}
-            </button>
-          </section>
+          </div>
 
-          <section className="section-card space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-              Apply Banked Amount
-            </h3>
-            <label className="block text-sm text-slate-700">
-              Amount to apply
-              <input
-                type="number"
-                step="0.01"
-                value={applyAmount}
-                onChange={(event) => {
-                  setApplyAmount(event.target.value);
-                }}
-                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                void handleApply();
-              }}
-              className="button-primary"
-              disabled={applyInProgress}
-            >
-              {applyInProgress ? 'Applying...' : 'Apply'}
-            </button>
-          </section>
-        </div>
-      ) : null}
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="section-card text-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500">CB Before</p>
+              <p className={`mt-1 text-xl font-semibold ${(selectedCompliance?.cb ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {(selectedCompliance?.cb ?? 0).toFixed(2)}
+              </p>
+            </div>
+            <div className="section-card text-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Applied</p>
+              <p className="mt-1 text-xl font-semibold text-cyan-800">{(applyResult?.applied ?? 0).toFixed(2)}</p>
+            </div>
+            <div className="section-card text-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500">CB After</p>
+              <p className={`mt-1 text-xl font-semibold ${(applyResult?.cbAfter ?? selectedCompliance?.cb ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {(applyResult?.cbAfter ?? selectedCompliance?.cb ?? 0).toFixed(2)}
+              </p>
+            </div>
+          </div>
 
-      {bankResult ? (
-        <div className="section-card border-emerald-200 bg-emerald-50/80 text-sm text-emerald-900">
-          <p className="font-semibold">Banking Result</p>
-          <p>Route: {bankResult.routeId}</p>
-          <p>Banked now: {bankResult.bankedAmount.toFixed(2)}</p>
-          <p>Total banked: {bankResult.newBankedTotal.toFixed(2)}</p>
-        </div>
-      ) : null}
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="section-card space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Bank Surplus</h3>
+              <label className="block text-sm text-slate-700">
+                Amount to bank (optional, defaults to full surplus)
+                <input
+                  type="number"
+                  step="0.01"
+                  value={bankAmount}
+                  onChange={(event) => setBankAmount(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleBank()}
+                className="button-primary"
+                disabled={bankingInProgress || !canBank}
+              >
+                {bankingInProgress ? 'Banking...' : 'Bank'}
+              </button>
+              {!canBank ? <p className="text-xs text-slate-500">Banking is disabled because CB is not positive.</p> : null}
+            </section>
 
-      {applyResult ? (
-        <div className="section-card border-cyan-200 bg-cyan-50/80 text-sm text-cyan-900">
-          <p className="font-semibold">Apply Result</p>
-          <p>Route: {applyResult.routeId}</p>
-          <p>Applied: {applyResult.appliedAmount.toFixed(2)}</p>
-          <p>Adjusted CB: {applyResult.adjustedComplianceBalance.toFixed(2)}</p>
-          <p>Remaining banked: {applyResult.remainingBankedAmount.toFixed(2)}</p>
-        </div>
+            <section className="section-card space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Apply Banked Amount</h3>
+              <label className="block text-sm text-slate-700">
+                Amount to apply
+                <input
+                  type="number"
+                  step="0.01"
+                  value={applyAmount}
+                  onChange={(event) => setApplyAmount(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleApply()}
+                className="button-primary"
+                disabled={applyInProgress || !canApply}
+              >
+                {applyInProgress ? 'Applying...' : 'Apply'}
+              </button>
+              {!canApply ? (
+                <p className="text-xs text-slate-500">
+                  Apply is disabled unless CB is negative and banked balance is available.
+                </p>
+              ) : null}
+            </section>
+          </div>
+
+          {bankResult ? (
+            <div className="section-card border-emerald-200 bg-emerald-50/80 text-sm text-emerald-900">
+              <p className="font-semibold">Bank Result</p>
+              <p>Ship: {bankResult.shipId}</p>
+              <p>Banked now: {bankResult.bankedAmount.toFixed(2)}</p>
+              <p>Total banked: {bankResult.newBankedTotal.toFixed(2)}</p>
+            </div>
+          ) : null}
+
+          <div className="section-card overflow-x-auto">
+            <p className="mb-3 text-sm font-semibold text-slate-800">Bank Records</p>
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
+                <tr>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">Amount</th>
+                  <th className="px-3 py-2">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {(recordsResult?.records ?? []).map((record) => (
+                  <tr key={record.id}>
+                    <td className="px-3 py-2">{record.entryType}</td>
+                    <td className="px-3 py-2">{record.amount.toFixed(2)}</td>
+                    <td className="px-3 py-2">{new Date(record.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : null}
     </div>
   );

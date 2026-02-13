@@ -2,7 +2,10 @@ import {
   ApplyBankedUseCase,
   BankSurplusUseCase,
   ComputeCBUseCase,
+  ComputeComparisonUseCase,
   CreatePoolUseCase,
+  GetAdjustedCBUseCase,
+  GetBankingRecordsUseCase,
   GetRoutesUseCase,
   SetBaselineUseCase,
 } from '../../../core/application';
@@ -21,7 +24,10 @@ export const frontendUseCases = {
   getRoutes: new GetRoutesUseCase(api),
   setBaseline: new SetBaselineUseCase(api),
   computeCB: new ComputeCBUseCase(api),
+  computeComparison: new ComputeComparisonUseCase(api),
+  getAdjustedCB: new GetAdjustedCBUseCase(api),
   bankSurplus: new BankSurplusUseCase(api),
   applyBanked: new ApplyBankedUseCase(api),
+  getBankingRecords: new GetBankingRecordsUseCase(api),
   createPool: new CreatePoolUseCase(api),
 };

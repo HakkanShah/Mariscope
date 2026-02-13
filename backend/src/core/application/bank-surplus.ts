@@ -5,13 +5,14 @@ import type { RouteRepository } from '../ports/route-repository.js';
 import { NotFoundError } from './errors/application-error.js';
 
 export interface BankSurplusInput {
-  routeId: string;
+  shipId: string;
   amountToBank?: number;
 }
 
 export interface BankSurplusOutput {
-  routeId: string;
-  complianceBalance: number;
+  shipId: string;
+  year: number;
+  cbBefore: number;
   bankedAmount: number;
   newBankedTotal: number;
 }
@@ -23,13 +24,13 @@ export class BankSurplusUseCase {
   ) {}
 
   public async execute(input: BankSurplusInput): Promise<BankSurplusOutput> {
-    const route = await this.routeRepository.getById(input.routeId);
+    const route = await this.routeRepository.getById(input.shipId);
     if (!route) {
-      throw new NotFoundError(`Route not found: ${input.routeId}`);
+      throw new NotFoundError(`Route not found: ${input.shipId}`);
     }
 
     const compliance = ComplianceBalance.fromRoute(route);
-    const currentBankedAmount = await this.bankRepository.getBankedAmount(route.id);
+    const currentBankedAmount = await this.bankRepository.getBankedAmount(route.id, route.year);
     const request =
       input.amountToBank === undefined
         ? {
@@ -41,15 +42,24 @@ export class BankSurplusUseCase {
             complianceBalance: compliance.complianceBalance,
             amountToBank: input.amountToBank,
           };
+
     const result = bankSurplus(request);
 
-    await this.bankRepository.setBankedAmount(route.id, result.newBankedTotal);
+    await this.bankRepository.saveRecord({
+      shipId: route.id,
+      year: route.year,
+      entryType: 'bank',
+      amount: result.bankedAmount,
+    });
+
+    const newBankedTotal = await this.bankRepository.getBankedAmount(route.id, route.year);
 
     return {
-      routeId: route.id,
-      complianceBalance: compliance.complianceBalance,
+      shipId: route.id,
+      year: route.year,
+      cbBefore: compliance.complianceBalance,
       bankedAmount: result.bankedAmount,
-      newBankedTotal: result.newBankedTotal,
+      newBankedTotal,
     };
   }
 }

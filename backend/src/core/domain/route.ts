@@ -1,12 +1,19 @@
 import { ENERGY_FACTOR_MJ_PER_TONNE } from './constants.js';
 import { DomainValidationError } from './errors/domain-validation-error.js';
 
+export type VesselType = 'Container' | 'BulkCarrier' | 'Tanker' | 'RoRo';
+export type FuelType = 'HFO' | 'LNG' | 'MGO';
+
 export interface RouteProps {
   id: string;
-  name: string;
+  vesselType: VesselType;
+  fuelType: FuelType;
+  year: number;
+  ghgIntensityGco2ePerMj: number;
   fuelConsumptionTonnes: number;
-  actualIntensityGco2ePerMj: number;
-  baselineIntensityGco2ePerMj?: number | null;
+  distanceKm: number;
+  totalEmissionsTonnes: number;
+  isBaseline: boolean;
 }
 
 const validateNonEmptyText = (value: string, fieldName: string): void => {
@@ -21,25 +28,33 @@ const validateNonNegativeNumber = (value: number, fieldName: string): void => {
   }
 };
 
+const validatePositiveInteger = (value: number, fieldName: string): void => {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new DomainValidationError(`${fieldName} must be a positive integer`);
+  }
+};
+
 export class Route {
   private constructor(private readonly props: RouteProps) {}
 
   public static create(props: RouteProps): Route {
     validateNonEmptyText(props.id, 'Route id');
-    validateNonEmptyText(props.name, 'Route name');
+    validatePositiveInteger(props.year, 'Year');
+    validateNonNegativeNumber(props.ghgIntensityGco2ePerMj, 'GHG intensity');
     validateNonNegativeNumber(props.fuelConsumptionTonnes, 'Fuel consumption');
-    validateNonNegativeNumber(props.actualIntensityGco2ePerMj, 'Actual intensity');
-
-    if (props.baselineIntensityGco2ePerMj != null) {
-      validateNonNegativeNumber(props.baselineIntensityGco2ePerMj, 'Baseline intensity');
-    }
+    validateNonNegativeNumber(props.distanceKm, 'Distance');
+    validateNonNegativeNumber(props.totalEmissionsTonnes, 'Total emissions');
 
     return new Route({
       id: props.id.trim(),
-      name: props.name.trim(),
+      vesselType: props.vesselType,
+      fuelType: props.fuelType,
+      year: props.year,
+      ghgIntensityGco2ePerMj: props.ghgIntensityGco2ePerMj,
       fuelConsumptionTonnes: props.fuelConsumptionTonnes,
-      actualIntensityGco2ePerMj: props.actualIntensityGco2ePerMj,
-      baselineIntensityGco2ePerMj: props.baselineIntensityGco2ePerMj ?? null,
+      distanceKm: props.distanceKm,
+      totalEmissionsTonnes: props.totalEmissionsTonnes,
+      isBaseline: props.isBaseline,
     });
   }
 
@@ -47,28 +62,42 @@ export class Route {
     return this.props.id;
   }
 
-  public get name(): string {
-    return this.props.name;
+  public get vesselType(): VesselType {
+    return this.props.vesselType;
+  }
+
+  public get fuelType(): FuelType {
+    return this.props.fuelType;
+  }
+
+  public get year(): number {
+    return this.props.year;
+  }
+
+  public get ghgIntensityGco2ePerMj(): number {
+    return this.props.ghgIntensityGco2ePerMj;
   }
 
   public get fuelConsumptionTonnes(): number {
     return this.props.fuelConsumptionTonnes;
   }
 
-  public get actualIntensityGco2ePerMj(): number {
-    return this.props.actualIntensityGco2ePerMj;
+  public get distanceKm(): number {
+    return this.props.distanceKm;
   }
 
-  public get baselineIntensityGco2ePerMj(): number | null {
-    return this.props.baselineIntensityGco2ePerMj ?? null;
+  public get totalEmissionsTonnes(): number {
+    return this.props.totalEmissionsTonnes;
   }
 
-  public withBaselineIntensity(baselineIntensityGco2ePerMj: number): Route {
-    validateNonNegativeNumber(baselineIntensityGco2ePerMj, 'Baseline intensity');
+  public get isBaseline(): boolean {
+    return this.props.isBaseline;
+  }
 
+  public withIsBaseline(isBaseline: boolean): Route {
     return Route.create({
       ...this.props,
-      baselineIntensityGco2ePerMj,
+      isBaseline,
     });
   }
 
@@ -80,4 +109,3 @@ export class Route {
     return { ...this.props };
   }
 }
-

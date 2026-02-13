@@ -2,40 +2,75 @@ import type { Pool } from 'pg';
 
 import { Route } from '../../../core/domain/route.js';
 import type { RouteRepository } from '../../../core/ports/route-repository.js';
+import type { RouteFilters } from '../../../core/ports/route-repository.js';
 
 interface RouteRow {
   id: string;
-  name: string;
+  vessel_type: 'Container' | 'BulkCarrier' | 'Tanker' | 'RoRo';
+  fuel_type: 'HFO' | 'LNG' | 'MGO';
+  year: number;
+  ghg_intensity_gco2e_per_mj: number;
   fuel_consumption_tonnes: number;
-  actual_intensity_gco2e_per_mj: number;
-  baseline_intensity_gco2e_per_mj: number | null;
+  distance_km: number;
+  total_emissions_tonnes: number;
+  is_baseline: boolean;
 }
 
 const mapRouteRow = (row: RouteRow): Route => {
   return Route.create({
     id: row.id,
-    name: row.name,
+    vesselType: row.vessel_type,
+    fuelType: row.fuel_type,
+    year: row.year,
+    ghgIntensityGco2ePerMj: row.ghg_intensity_gco2e_per_mj,
     fuelConsumptionTonnes: row.fuel_consumption_tonnes,
-    actualIntensityGco2ePerMj: row.actual_intensity_gco2e_per_mj,
-    baselineIntensityGco2ePerMj: row.baseline_intensity_gco2e_per_mj,
+    distanceKm: row.distance_km,
+    totalEmissionsTonnes: row.total_emissions_tonnes,
+    isBaseline: row.is_baseline,
   });
 };
 
 export class PgRouteRepository implements RouteRepository {
   public constructor(private readonly pool: Pool) {}
 
-  public async getAll(): Promise<Route[]> {
+  public async getAll(filters?: RouteFilters): Promise<Route[]> {
+    const where: string[] = [];
+    const values: Array<string | number> = [];
+
+    if (filters?.year !== undefined) {
+      values.push(filters.year);
+      where.push(`year = $${values.length}`);
+    }
+
+    if (filters?.vesselType !== undefined) {
+      values.push(filters.vesselType);
+      where.push(`vessel_type = $${values.length}`);
+    }
+
+    if (filters?.fuelType !== undefined) {
+      values.push(filters.fuelType);
+      where.push(`fuel_type = $${values.length}`);
+    }
+
+    const whereClause = where.length === 0 ? '' : `WHERE ${where.join(' AND ')}`;
+
     const result = await this.pool.query<RouteRow>(
       `
       SELECT
         id,
-        name,
+        vessel_type,
+        fuel_type,
+        year,
+        ghg_intensity_gco2e_per_mj,
         fuel_consumption_tonnes,
-        actual_intensity_gco2e_per_mj,
-        baseline_intensity_gco2e_per_mj
+        distance_km,
+        total_emissions_tonnes,
+        is_baseline
       FROM routes
+      ${whereClause}
       ORDER BY id
       `,
+      values,
     );
 
     return result.rows.map(mapRouteRow);
@@ -46,10 +81,14 @@ export class PgRouteRepository implements RouteRepository {
       `
       SELECT
         id,
-        name,
+        vessel_type,
+        fuel_type,
+        year,
+        ghg_intensity_gco2e_per_mj,
         fuel_consumption_tonnes,
-        actual_intensity_gco2e_per_mj,
-        baseline_intensity_gco2e_per_mj
+        distance_km,
+        total_emissions_tonnes,
+        is_baseline
       FROM routes
       WHERE id = $1
       `,
@@ -71,24 +110,36 @@ export class PgRouteRepository implements RouteRepository {
       `
       INSERT INTO routes (
         id,
-        name,
+        vessel_type,
+        fuel_type,
+        year,
+        ghg_intensity_gco2e_per_mj,
         fuel_consumption_tonnes,
-        actual_intensity_gco2e_per_mj,
-        baseline_intensity_gco2e_per_mj
+        distance_km,
+        total_emissions_tonnes,
+        is_baseline
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
+        vessel_type = EXCLUDED.vessel_type,
+        fuel_type = EXCLUDED.fuel_type,
+        year = EXCLUDED.year,
+        ghg_intensity_gco2e_per_mj = EXCLUDED.ghg_intensity_gco2e_per_mj,
         fuel_consumption_tonnes = EXCLUDED.fuel_consumption_tonnes,
-        actual_intensity_gco2e_per_mj = EXCLUDED.actual_intensity_gco2e_per_mj,
-        baseline_intensity_gco2e_per_mj = EXCLUDED.baseline_intensity_gco2e_per_mj
+        distance_km = EXCLUDED.distance_km,
+        total_emissions_tonnes = EXCLUDED.total_emissions_tonnes,
+        is_baseline = EXCLUDED.is_baseline
       `,
       [
         model.id,
-        model.name,
+        model.vesselType,
+        model.fuelType,
+        model.year,
+        model.ghgIntensityGco2ePerMj,
         model.fuelConsumptionTonnes,
-        model.actualIntensityGco2ePerMj,
-        model.baselineIntensityGco2ePerMj,
+        model.distanceKm,
+        model.totalEmissionsTonnes,
+        model.isBaseline,
       ],
     );
   }

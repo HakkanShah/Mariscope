@@ -4,7 +4,6 @@ import { NotFoundError } from './errors/application-error.js';
 
 export interface SetBaselineInput {
   routeId: string;
-  baselineIntensityGco2ePerMj: number;
 }
 
 export class SetBaselineUseCase {
@@ -16,9 +15,18 @@ export class SetBaselineUseCase {
       throw new NotFoundError(`Route not found: ${input.routeId}`);
     }
 
-    const updatedRoute = route.withBaselineIntensity(input.baselineIntensityGco2ePerMj);
-    await this.routeRepository.save(updatedRoute);
-    return updatedRoute.toPrimitives();
+    const sameYearRoutes = await this.routeRepository.getAll({ year: route.year });
+
+    for (const currentRoute of sameYearRoutes) {
+      const next = currentRoute.withIsBaseline(currentRoute.id === route.id);
+      await this.routeRepository.save(next);
+    }
+
+    const updated = await this.routeRepository.getById(route.id);
+    if (!updated) {
+      throw new NotFoundError(`Route not found after baseline update: ${route.id}`);
+    }
+
+    return updated.toPrimitives();
   }
 }
-

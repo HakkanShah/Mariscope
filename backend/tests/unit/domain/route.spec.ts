@@ -5,49 +5,68 @@ import { DomainValidationError, Route } from '../../../src/core/domain/index.js'
 describe('Route', () => {
   it('creates a route and computes energy in scope', () => {
     const route = Route.create({
-      id: 'route-1',
-      name: 'North Sea Corridor',
-      fuelConsumptionTonnes: 100,
-      actualIntensityGco2ePerMj: 88.2,
+      id: 'R001',
+      vesselType: 'Container',
+      fuelType: 'HFO',
+      year: 2024,
+      ghgIntensityGco2ePerMj: 91,
+      fuelConsumptionTonnes: 5000,
+      distanceKm: 12000,
+      totalEmissionsTonnes: 4500,
+      isBaseline: true,
     });
 
-    expect(route.id).toBe('route-1');
-    expect(route.name).toBe('North Sea Corridor');
-    expect(route.energyInScopeMj()).toBe(4_100_000);
+    expect(route.id).toBe('R001');
+    expect(route.vesselType).toBe('Container');
+    expect(route.energyInScopeMj()).toBe(205_000_000);
   });
 
-  it('adds a baseline intensity through immutable update', () => {
+  it('updates baseline flag through immutable update', () => {
     const route = Route.create({
-      id: 'route-2',
-      name: 'Baltic Link',
-      fuelConsumptionTonnes: 60,
-      actualIntensityGco2ePerMj: 90.5,
+      id: 'R002',
+      vesselType: 'BulkCarrier',
+      fuelType: 'LNG',
+      year: 2024,
+      ghgIntensityGco2ePerMj: 88,
+      fuelConsumptionTonnes: 4800,
+      distanceKm: 11500,
+      totalEmissionsTonnes: 4200,
+      isBaseline: false,
     });
 
-    const updated = route.withBaselineIntensity(87.25);
+    const updated = route.withIsBaseline(true);
 
-    expect(route.baselineIntensityGco2ePerMj).toBeNull();
-    expect(updated.baselineIntensityGco2ePerMj).toBe(87.25);
+    expect(route.isBaseline).toBe(false);
+    expect(updated.isBaseline).toBe(true);
   });
 
   it('rejects invalid route payload', () => {
     expect(() =>
       Route.create({
-        id: 'route-3',
-        name: '  ',
-        fuelConsumptionTonnes: 10,
-        actualIntensityGco2ePerMj: 90,
+        id: ' ',
+        vesselType: 'Container',
+        fuelType: 'HFO',
+        year: 2024,
+        ghgIntensityGco2ePerMj: 91,
+        fuelConsumptionTonnes: 5000,
+        distanceKm: 12000,
+        totalEmissionsTonnes: 4500,
+        isBaseline: false,
       }),
     ).toThrowError(DomainValidationError);
 
     expect(() =>
       Route.create({
-        id: 'route-4',
-        name: 'Atlantic Crossing',
-        fuelConsumptionTonnes: -1,
-        actualIntensityGco2ePerMj: 90,
+        id: 'R003',
+        vesselType: 'Tanker',
+        fuelType: 'MGO',
+        year: 2024,
+        ghgIntensityGco2ePerMj: -1,
+        fuelConsumptionTonnes: 5100,
+        distanceKm: 12500,
+        totalEmissionsTonnes: 4700,
+        isBaseline: false,
       }),
     ).toThrowError(DomainValidationError);
   });
 });
-

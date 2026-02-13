@@ -8,11 +8,11 @@ describe('BankSurplusUseCase', () => {
     const context = createApplicationTestContext();
 
     const result = await context.useCases.bankSurplus.execute({
-      routeId: 'route-1',
+      shipId: 'R002',
       amountToBank: 500_000,
     });
 
-    expect(result.routeId).toBe('route-1');
+    expect(result.shipId).toBe('R002');
     expect(result.bankedAmount).toBe(500_000);
     expect(result.newBankedTotal).toBe(500_000);
   });
@@ -22,10 +22,9 @@ describe('BankSurplusUseCase', () => {
 
     await expect(
       context.useCases.bankSurplus.execute({
-        routeId: 'route-3',
+        shipId: 'R003',
         amountToBank: 1,
       }),
     ).rejects.toThrowError(DomainValidationError);
   });
 });
-

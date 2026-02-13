@@ -2,7 +2,10 @@ import {
   ApplyBankedUseCase,
   BankSurplusUseCase,
   ComputeCBUseCase,
+  ComputeComparisonUseCase,
   CreatePoolUseCase,
+  GetAdjustedCBUseCase,
+  GetBankingRecordsUseCase,
   GetRoutesUseCase,
   SetBaselineUseCase,
 } from '../../../src/core/application/index.js';
@@ -34,10 +37,12 @@ export const createApplicationTestContext = () => {
       getRoutes: new GetRoutesUseCase(routeRepository),
       setBaseline: new SetBaselineUseCase(routeRepository),
       computeCB: new ComputeCBUseCase(routeRepository, complianceRepository),
+      computeComparison: new ComputeComparisonUseCase(routeRepository),
+      getAdjustedCB: new GetAdjustedCBUseCase(routeRepository, bankRepository),
       bankSurplus: new BankSurplusUseCase(routeRepository, bankRepository),
       applyBanked: new ApplyBankedUseCase(routeRepository, bankRepository),
-      createPool: new CreatePoolUseCase(routeRepository, poolRepository),
+      getBankingRecords: new GetBankingRecordsUseCase(bankRepository),
+      createPool: new CreatePoolUseCase(routeRepository, bankRepository, poolRepository),
     },
   };
 };
-

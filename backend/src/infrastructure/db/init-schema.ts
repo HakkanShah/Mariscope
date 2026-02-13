@@ -7,35 +7,47 @@ export const initializePostgresSchema = async (pool: Pool): Promise<void> => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS routes (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
+      vessel_type TEXT NOT NULL,
+      fuel_type TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      ghg_intensity_gco2e_per_mj DOUBLE PRECISION NOT NULL,
       fuel_consumption_tonnes DOUBLE PRECISION NOT NULL,
-      actual_intensity_gco2e_per_mj DOUBLE PRECISION NOT NULL,
-      baseline_intensity_gco2e_per_mj DOUBLE PRECISION NULL
+      distance_km DOUBLE PRECISION NOT NULL,
+      total_emissions_tonnes DOUBLE PRECISION NOT NULL,
+      is_baseline BOOLEAN NOT NULL DEFAULT FALSE
     );
 
-    CREATE TABLE IF NOT EXISTS route_compliance (
-      route_id TEXT PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
+    CREATE TABLE IF NOT EXISTS ship_compliance (
+      id BIGSERIAL PRIMARY KEY,
+      ship_id TEXT NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      cb_gco2eq DOUBLE PRECISION NOT NULL,
+      energy_in_scope_mj DOUBLE PRECISION NOT NULL,
       target_intensity_gco2e_per_mj DOUBLE PRECISION NOT NULL,
       actual_intensity_gco2e_per_mj DOUBLE PRECISION NOT NULL,
       fuel_consumption_tonnes DOUBLE PRECISION NOT NULL,
-      energy_in_scope_mj DOUBLE PRECISION NOT NULL,
-      compliance_balance DOUBLE PRECISION NOT NULL,
-      percent_difference_from_target DOUBLE PRECISION NOT NULL
+      computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (ship_id, year)
     );
 
-    CREATE TABLE IF NOT EXISTS route_banks (
-      route_id TEXT PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
-      banked_amount DOUBLE PRECISION NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS pool_runs (
-      pool_id TEXT PRIMARY KEY DEFAULT ('pool-' || md5(random()::text || clock_timestamp()::text)),
+    CREATE TABLE IF NOT EXISTS bank_entries (
+      id BIGSERIAL PRIMARY KEY,
+      ship_id TEXT NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      entry_type TEXT NOT NULL CHECK (entry_type IN ('bank', 'apply')),
+      amount_gco2eq DOUBLE PRECISION NOT NULL CHECK (amount_gco2eq > 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS pool_entries (
+    CREATE TABLE IF NOT EXISTS pools (
+      id TEXT PRIMARY KEY DEFAULT ('pool-' || md5(random()::text || clock_timestamp()::text)),
+      year INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS pool_members (
       id BIGSERIAL PRIMARY KEY,
-      pool_id TEXT NOT NULL REFERENCES pool_runs(pool_id) ON DELETE CASCADE,
+      pool_id TEXT NOT NULL REFERENCES pools(id) ON DELETE CASCADE,
       ship_id TEXT NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
       cb_before DOUBLE PRECISION NOT NULL,
       cb_after DOUBLE PRECISION NOT NULL
@@ -58,19 +70,27 @@ export const seedInitialRoutesIfEmpty = async (pool: Pool): Promise<void> => {
       `
       INSERT INTO routes (
         id,
-        name,
+        vessel_type,
+        fuel_type,
+        year,
+        ghg_intensity_gco2e_per_mj,
         fuel_consumption_tonnes,
-        actual_intensity_gco2e_per_mj,
-        baseline_intensity_gco2e_per_mj
+        distance_km,
+        total_emissions_tonnes,
+        is_baseline
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       `,
       [
         route.id,
-        route.name,
+        route.vesselType,
+        route.fuelType,
+        route.year,
+        route.ghgIntensityGco2ePerMj,
         route.fuelConsumptionTonnes,
-        route.actualIntensityGco2ePerMj,
-        route.baselineIntensityGco2ePerMj,
+        route.distanceKm,
+        route.totalEmissionsTonnes,
+        route.isBaseline,
       ],
     );
   }

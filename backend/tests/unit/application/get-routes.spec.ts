@@ -12,24 +12,30 @@ describe('GetRoutesUseCase', () => {
     const result = await context.useCases.getRoutes.execute();
 
     expect(result).toHaveLength(5);
-    expect(result[0]?.id).toBe('route-1');
+    expect(result[0]?.id).toBe('R001');
   });
 
-  it('returns empty array when no routes are present', async () => {
-    const useCase = new GetRoutesUseCase(new InMemoryRouteRepository([]));
+  it('filters by year', async () => {
+    const context = createApplicationTestContext();
 
-    const result = await useCase.execute();
+    const result = await context.useCases.getRoutes.execute({ year: 2025 });
 
-    expect(result).toEqual([]);
+    expect(result).toHaveLength(2);
+    expect(result.every((route) => route.year === 2025)).toBe(true);
   });
 
   it('returns serializable route primitives', async () => {
     const repository = new InMemoryRouteRepository([
       Route.create({
-        id: 'custom-route',
-        name: 'Custom',
-        fuelConsumptionTonnes: 10,
-        actualIntensityGco2ePerMj: 87,
+        id: 'RX01',
+        vesselType: 'Container',
+        fuelType: 'LNG',
+        year: 2026,
+        ghgIntensityGco2ePerMj: 87,
+        fuelConsumptionTonnes: 100,
+        distanceKm: 1000,
+        totalEmissionsTonnes: 80,
+        isBaseline: false,
       }),
     ]);
     const useCase = new GetRoutesUseCase(repository);
@@ -37,11 +43,15 @@ describe('GetRoutesUseCase', () => {
     const result = await useCase.execute();
 
     expect(result[0]).toEqual({
-      id: 'custom-route',
-      name: 'Custom',
-      fuelConsumptionTonnes: 10,
-      actualIntensityGco2ePerMj: 87,
-      baselineIntensityGco2ePerMj: null,
+      id: 'RX01',
+      vesselType: 'Container',
+      fuelType: 'LNG',
+      year: 2026,
+      ghgIntensityGco2ePerMj: 87,
+      fuelConsumptionTonnes: 100,
+      distanceKm: 1000,
+      totalEmissionsTonnes: 80,
+      isBaseline: false,
     });
   });
 });

@@ -3,6 +3,7 @@ import type { PoolRepository, SavedPoolResult } from '../../../core/ports/pool-r
 
 interface StoredPool {
   id: string;
+  year: number;
   createdAt: string;
   entries: PoolAdjustmentResult[];
 }
@@ -10,10 +11,11 @@ interface StoredPool {
 export class InMemoryPoolRepository implements PoolRepository {
   private readonly pools: StoredPool[] = [];
 
-  public savePoolResult(entries: PoolAdjustmentResult[]): Promise<SavedPoolResult> {
+  public savePoolResult(year: number, entries: PoolAdjustmentResult[]): Promise<SavedPoolResult> {
     const now = new Date().toISOString();
     const pool: StoredPool = {
       id: `pool-${this.pools.length + 1}`,
+      year,
       createdAt: now,
       entries,
     };
@@ -22,6 +24,7 @@ export class InMemoryPoolRepository implements PoolRepository {
 
     return Promise.resolve({
       poolId: pool.id,
+      year: pool.year,
       createdAt: pool.createdAt,
     });
   }

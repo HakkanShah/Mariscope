@@ -1,20 +1,20 @@
-import { ComplianceBalance } from '../domain/compliance-balance.js';
-import { applyBanked } from '../domain/banking.js';
+import { applyBanked, ComplianceBalance } from '../domain/index.js';
 import type { BankRepository } from '../ports/bank-repository.js';
 import type { RouteRepository } from '../ports/route-repository.js';
 import { NotFoundError } from './errors/application-error.js';
 
 export interface ApplyBankedInput {
-  routeId: string;
+  shipId: string;
   amountToApply: number;
 }
 
 export interface ApplyBankedOutput {
-  routeId: string;
-  complianceBalance: number;
-  appliedAmount: number;
+  shipId: string;
+  year: number;
+  cbBefore: number;
+  applied: number;
+  cbAfter: number;
   remainingBankedAmount: number;
-  adjustedComplianceBalance: number;
 }
 
 export class ApplyBankedUseCase {
@@ -24,28 +24,33 @@ export class ApplyBankedUseCase {
   ) {}
 
   public async execute(input: ApplyBankedInput): Promise<ApplyBankedOutput> {
-    const route = await this.routeRepository.getById(input.routeId);
+    const route = await this.routeRepository.getById(input.shipId);
     if (!route) {
-      throw new NotFoundError(`Route not found: ${input.routeId}`);
+      throw new NotFoundError(`Route not found: ${input.shipId}`);
     }
 
     const compliance = ComplianceBalance.fromRoute(route);
-    const currentBankedAmount = await this.bankRepository.getBankedAmount(route.id);
+    const currentBankedAmount = await this.bankRepository.getBankedAmount(route.id, route.year);
     const result = applyBanked({
       currentBankedAmount,
       complianceBalance: compliance.complianceBalance,
       amountToApply: input.amountToApply,
     });
 
-    await this.bankRepository.setBankedAmount(route.id, result.remainingBankedAmount);
+    await this.bankRepository.saveRecord({
+      shipId: route.id,
+      year: route.year,
+      entryType: 'apply',
+      amount: result.appliedAmount,
+    });
 
     return {
-      routeId: route.id,
-      complianceBalance: compliance.complianceBalance,
-      appliedAmount: result.appliedAmount,
+      shipId: route.id,
+      year: route.year,
+      cbBefore: compliance.complianceBalance,
+      applied: result.appliedAmount,
+      cbAfter: result.adjustedComplianceBalance,
       remainingBankedAmount: result.remainingBankedAmount,
-      adjustedComplianceBalance: result.adjustedComplianceBalance,
     };
   }
 }
-

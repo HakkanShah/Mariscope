@@ -1,5 +1,5 @@
 import type { Route } from '../../../core/domain/route.js';
-import type { RouteRepository } from '../../../core/ports/route-repository.js';
+import type { RouteFilters, RouteRepository } from '../../../core/ports/route-repository.js';
 
 export class InMemoryRouteRepository implements RouteRepository {
   private readonly routes = new Map<string, Route>();
@@ -10,8 +10,24 @@ export class InMemoryRouteRepository implements RouteRepository {
     }
   }
 
-  public getAll(): Promise<Route[]> {
-    return Promise.resolve([...this.routes.values()]);
+  public getAll(filters?: RouteFilters): Promise<Route[]> {
+    const routes = [...this.routes.values()].filter((route) => {
+      if (filters?.year !== undefined && route.year !== filters.year) {
+        return false;
+      }
+
+      if (filters?.vesselType !== undefined && route.vesselType !== filters.vesselType) {
+        return false;
+      }
+
+      if (filters?.fuelType !== undefined && route.fuelType !== filters.fuelType) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return Promise.resolve(routes);
   }
 
   public getById(routeId: string): Promise<Route | null> {

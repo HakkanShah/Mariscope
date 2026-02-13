@@ -4,8 +4,7 @@ import type { MariscopeApiPort } from '../ports';
 export class ApplyBankedUseCase {
   public constructor(private readonly api: MariscopeApiPort) {}
 
-  public execute(routeId: string, amountToApply: number): Promise<ApplyBankedResponse> {
-    return this.api.applyBanked(routeId, amountToApply);
+  public execute(shipId: string, amountToApply: number): Promise<ApplyBankedResponse> {
+    return this.api.applyBanked(shipId, amountToApply);
   }
 }
-
