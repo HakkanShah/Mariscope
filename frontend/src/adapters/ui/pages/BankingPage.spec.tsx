@@ -159,4 +159,26 @@ describe('BankingPage', () => {
       expect(mockedUseCases.applyBankedExecute).toHaveBeenCalledWith('SHIP-B', 75);
     });
   });
+
+  it('shows guidance message when banking is attempted for non-surplus ship', async () => {
+    render(<BankingPage />);
+
+    await waitFor(() => {
+      expect(mockedUseCases.computeCBExecute).toHaveBeenCalledWith({ year: 2024 });
+    });
+
+    fireEvent.change(screen.getByLabelText('Ship'), {
+      target: { value: 'SHIP-B' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bank' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Selected ship has no surplus CB. Choose a ship with positive CB or change year.'),
+      ).toBeInTheDocument();
+    });
+
+    expect(mockedUseCases.bankSurplusExecute).toHaveBeenCalledTimes(0);
+  });
 });

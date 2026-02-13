@@ -81,15 +81,15 @@ describe('ComparePage', () => {
   it('renders comparison rows with compliance status labels', async () => {
     render(<ComparePage />);
 
-    expect(await screen.findByText('R-101')).toBeInTheDocument();
-    expect(screen.getByText('R-202')).toBeInTheDocument();
+    expect((await screen.findAllByText('R-101')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('R-202').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Compliant').length).toBeGreaterThan(0);
-    expect(screen.getByText('Non-compliant')).toBeInTheDocument();
+    expect(screen.getAllByText('Non-compliant').length).toBeGreaterThan(0);
   });
 
   it('shows a baseline guidance message for years without baseline', async () => {
     render(<ComparePage />);
-    await screen.findByText('R-101');
+    await screen.findAllByText('R-101');
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: '2025' },

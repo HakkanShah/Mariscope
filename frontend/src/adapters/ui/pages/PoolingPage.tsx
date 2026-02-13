@@ -55,7 +55,13 @@ export const PoolingPage = () => {
 
   const handleCreatePool = async () => {
     if (selectedShipIds.length === 0) {
-      setError('Select at least one ship');
+      setError('Select at least one ship to create a pool.');
+      setSuccess(null);
+      return;
+    }
+
+    if (poolSum < 0) {
+      setError('Pool sum is negative. Remove deficit-heavy ships until Pool Sum is non-negative.');
       setSuccess(null);
       return;
     }
@@ -83,11 +89,11 @@ export const PoolingPage = () => {
             Create a valid Article 21 pool with adjusted CB members and greedy allocation.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <select
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm sm:w-auto"
           >
             <option value={2024}>2024</option>
             <option value={2025}>2025</option>
@@ -97,7 +103,7 @@ export const PoolingPage = () => {
             onClick={() => {
               void loadAdjusted(year);
             }}
-            className="button-muted"
+            className="button-muted w-full sm:w-auto"
           >
             Reload
           </button>
@@ -127,7 +133,49 @@ export const PoolingPage = () => {
       {loading ? <LoadingBlock label="Loading adjusted compliance data..." /> : null}
 
       {!loading ? (
-        <div className="section-card overflow-x-auto">
+        <>
+          <div className="space-y-3 md:hidden">
+            {adjustedRows.map((row) => (
+              <article key={row.shipId} className="section-card space-y-2 p-4 text-xs">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">{row.shipId}</p>
+                  <label className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={selected[row.shipId] ?? false}
+                      onChange={(event) => {
+                        setSelected((current) => ({
+                          ...current,
+                          [row.shipId]: event.target.checked,
+                        }));
+                      }}
+                    />
+                    Include
+                  </label>
+                </div>
+                <dl className="grid grid-cols-3 gap-2">
+                  <div>
+                    <dt className="text-slate-500">CB Before</dt>
+                    <dd className={`font-semibold ${row.cbBefore >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {row.cbBefore.toFixed(2)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Applied</dt>
+                    <dd className="font-semibold text-cyan-800">{row.applied.toFixed(2)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Adjusted</dt>
+                    <dd className={`font-semibold ${row.adjustedCb >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {row.adjustedCb.toFixed(2)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+
+          <div className="section-card hidden overflow-x-auto md:block">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
               <tr>
@@ -165,7 +213,8 @@ export const PoolingPage = () => {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : null}
 
       <button
@@ -173,8 +222,8 @@ export const PoolingPage = () => {
         onClick={() => {
           void handleCreatePool();
         }}
-        className="button-primary"
-        disabled={poolingInProgress || selectedShipIds.length === 0 || poolSum < 0}
+        className="button-primary w-full md:w-auto"
+        disabled={poolingInProgress}
       >
         {poolingInProgress ? 'Creating pool...' : 'Create Pool'}
       </button>
@@ -187,7 +236,18 @@ export const PoolingPage = () => {
           <p className="text-xs text-slate-600">
             Sum Before: {poolResult.poolSumBefore.toFixed(2)} | Sum After: {poolResult.poolSumAfter.toFixed(2)}
           </p>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <div className="space-y-2 md:hidden">
+            {poolResult.entries.map((entry) => (
+              <article key={entry.shipId} className="rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                <p className="font-semibold text-slate-900">{entry.shipId}</p>
+                <p className="text-slate-600">CB Before: {entry.cbBefore.toFixed(2)}</p>
+                <p className={`${entry.cbAfter >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  CB After: {entry.cbAfter.toFixed(2)}
+                </p>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-white text-left text-xs uppercase text-slate-600">
                 <tr>

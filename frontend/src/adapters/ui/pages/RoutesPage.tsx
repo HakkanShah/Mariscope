@@ -70,12 +70,18 @@ export const RoutesPage = () => {
     [routes, vesselFilter, fuelFilter, yearFilter],
   );
 
-  const handleSetBaseline = async (routeId: string) => {
+  const handleSetBaseline = async (route: RouteModel) => {
+    if (route.isBaseline) {
+      setError(null);
+      setSuccess(`${route.id} is already the baseline route for ${route.year}.`);
+      return;
+    }
+
     try {
       setError(null);
       setSuccess(null);
-      setSavingRouteId(routeId);
-      const updated = await frontendUseCases.setBaseline.execute(routeId);
+      setSavingRouteId(route.id);
+      const updated = await frontendUseCases.setBaseline.execute(route.id);
       setSuccess(`Baseline updated to ${updated.id} (${updated.year})`);
       await loadRoutes();
     } catch (requestError) {
@@ -165,7 +171,66 @@ export const RoutesPage = () => {
       {loading ? <LoadingBlock label="Loading routes..." /> : null}
 
       {!loading && filteredRoutes.length > 0 ? (
-        <div className="section-card overflow-x-auto">
+        <>
+          <div className="space-y-3 md:hidden">
+            {filteredRoutes.map((route) => (
+              <article key={route.id} className="section-card space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{route.id}</p>
+                    <p className="text-xs text-slate-600">
+                      {route.vesselType} | {route.fuelType} | {route.year}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded px-2 py-1 text-xs font-semibold ${
+                      route.isBaseline
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {route.isBaseline ? 'Baseline' : 'Candidate'}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <div>
+                    <dt>GHG</dt>
+                    <dd className="font-semibold text-slate-900">
+                      {formatNumber(route.ghgIntensityGco2ePerMj, 3)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Fuel (t)</dt>
+                    <dd className="font-semibold text-slate-900">{formatNumber(route.fuelConsumptionTonnes)}</dd>
+                  </div>
+                  <div>
+                    <dt>Distance (km)</dt>
+                    <dd className="font-semibold text-slate-900">{formatNumber(route.distanceKm)}</dd>
+                  </div>
+                  <div>
+                    <dt>Emissions (t)</dt>
+                    <dd className="font-semibold text-slate-900">{formatNumber(route.totalEmissionsTonnes)}</dd>
+                  </div>
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSetBaseline(route);
+                  }}
+                  className="button-primary w-full px-3 py-2 text-xs"
+                  disabled={savingRouteId === route.id}
+                >
+                  {savingRouteId === route.id
+                    ? 'Saving...'
+                    : route.isBaseline
+                      ? 'Already Baseline'
+                      : 'Set Baseline'}
+                </button>
+              </article>
+            ))}
+          </div>
+
+          <div className="section-card hidden overflow-x-auto md:block">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
               <tr>
@@ -205,19 +270,24 @@ export const RoutesPage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        void handleSetBaseline(route.id);
+                        void handleSetBaseline(route);
                       }}
                       className="button-primary px-3 py-1.5 text-xs"
-                      disabled={savingRouteId === route.id || route.isBaseline}
+                      disabled={savingRouteId === route.id}
                     >
-                      {savingRouteId === route.id ? 'Saving...' : 'Set Baseline'}
+                      {savingRouteId === route.id
+                        ? 'Saving...'
+                        : route.isBaseline
+                          ? 'Already Baseline'
+                          : 'Set Baseline'}
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : null}
 
       {!loading && filteredRoutes.length === 0 ? (

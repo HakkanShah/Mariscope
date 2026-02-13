@@ -124,11 +124,11 @@ export const ComparePage = () => {
             Compare route GHG intensity values against the selected baseline.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <select
             value={year}
             onChange={(event) => setYear(event.target.value)}
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm sm:w-auto"
             disabled={metaLoading || availableYears.length === 0}
           >
             {availableYears.map((yearOption) => (
@@ -144,7 +144,7 @@ export const ComparePage = () => {
             onClick={() => {
               void loadYearMetadata();
             }}
-            className="button-muted"
+            className="button-muted w-full sm:w-auto"
             disabled={metaLoading}
           >
             Reload
@@ -177,7 +177,7 @@ export const ComparePage = () => {
             </p>
           </div>
 
-          <div className="section-card h-80 w-full">
+          <div className="section-card h-64 w-full md:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ left: 12, right: 12, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -190,7 +190,38 @@ export const ComparePage = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="section-card overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {comparison.comparisons.map((row) => (
+              <article key={row.routeId} className="section-card space-y-2 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">{row.routeId}</p>
+                  <span
+                    className={`rounded px-2 py-1 text-xs font-semibold ${
+                      row.compliant
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {row.compliant ? 'Compliant' : 'Non-compliant'}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <div>
+                    <dt>GHG Intensity</dt>
+                    <dd className="font-semibold text-slate-900">{row.ghgIntensityGco2ePerMj.toFixed(3)}</dd>
+                  </div>
+                  <div>
+                    <dt>% Difference</dt>
+                    <dd className={`font-semibold ${row.percentDiff <= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {row.percentDiff.toFixed(3)}%
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+
+          <div className="section-card hidden overflow-x-auto md:block">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
                 <tr>

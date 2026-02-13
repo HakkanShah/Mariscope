@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RouteModel } from '../../../core/domain';
@@ -60,25 +60,30 @@ describe('RoutesPage', () => {
   it('renders routes and applies vessel filter', async () => {
     render(<RoutesPage />);
 
-    expect(await screen.findByText('R001')).toBeInTheDocument();
-    expect(screen.getByText('R002')).toBeInTheDocument();
+    expect((await screen.findAllByText('R001')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('R002').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText('Vessel Type'), {
       target: { value: 'Container' },
     });
 
     await waitFor(() => {
-      expect(screen.getByText('R001')).toBeInTheDocument();
-      expect(screen.queryByText('R002')).not.toBeInTheDocument();
+      expect(screen.getAllByText('R001').length).toBeGreaterThan(0);
+      expect(screen.queryAllByText('R002')).toHaveLength(0);
     });
   });
 
   it('calls setBaseline when clicking action button', async () => {
     render(<RoutesPage />);
 
-    await screen.findByText('R002');
+    await screen.findAllByText('R002');
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Set Baseline' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement);
+    const row = within(screen.getByRole('table')).getByText('R002').closest('tr');
+    if (!row) {
+      throw new Error('Expected R002 row');
+    }
+
+    fireEvent.click(within(row).getByRole('button', { name: 'Set Baseline' }));
 
     await waitFor(() => {
       expect(mockedUseCases.setBaselineExecute).toHaveBeenCalledWith('R002');

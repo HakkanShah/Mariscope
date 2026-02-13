@@ -109,6 +109,21 @@ export const BankingPage = () => {
 
   const handleBank = async () => {
     if (selectedShipId.length === 0) {
+      setError('Select a ship before banking.');
+      setSuccess(null);
+      return;
+    }
+
+    if (!canBank) {
+      setError('Selected ship has no surplus CB. Choose a ship with positive CB or change year.');
+      setSuccess(null);
+      return;
+    }
+
+    const parsedAmount = bankAmount.trim().length > 0 ? Number(bankAmount) : undefined;
+    if (parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) {
+      setError('Amount to bank must be greater than zero.');
+      setSuccess(null);
       return;
     }
 
@@ -116,7 +131,6 @@ export const BankingPage = () => {
       setError(null);
       setSuccess(null);
       setBankingInProgress(true);
-      const parsedAmount = bankAmount.trim().length > 0 ? Number(bankAmount) : undefined;
       const result = await frontendUseCases.bankSurplus.execute(selectedShipId, parsedAmount);
       setBankResult(result);
       setSuccess(`Banked ${result.bankedAmount.toFixed(2)} for ${result.shipId}`);
@@ -130,6 +144,14 @@ export const BankingPage = () => {
 
   const handleApply = async () => {
     if (selectedShipId.length === 0) {
+      setError('Select a ship before applying banked amount.');
+      setSuccess(null);
+      return;
+    }
+
+    if (!canApply) {
+      setError('Apply requires a deficit ship (negative CB) and available year ledger balance.');
+      setSuccess(null);
       return;
     }
 
@@ -222,7 +244,7 @@ export const BankingPage = () => {
             </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <div className="section-card text-sm">
               <p className="text-xs uppercase tracking-wide text-slate-500">CB Before</p>
               <p className={`mt-1 text-xl font-semibold ${(selectedCompliance?.cb ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -237,6 +259,12 @@ export const BankingPage = () => {
               <p className="text-xs uppercase tracking-wide text-slate-500">CB After</p>
               <p className={`mt-1 text-xl font-semibold ${(applyResult?.cbAfter ?? selectedCompliance?.cb ?? 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                 {(applyResult?.cbAfter ?? selectedCompliance?.cb ?? 0).toFixed(2)}
+              </p>
+            </div>
+            <div className="section-card text-sm">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Year Ledger Balance</p>
+              <p className="mt-1 text-xl font-semibold text-cyan-800">
+                {(recordsResult?.currentBankedAmount ?? 0).toFixed(2)}
               </p>
             </div>
           </div>
@@ -258,11 +286,15 @@ export const BankingPage = () => {
                 type="button"
                 onClick={() => void handleBank()}
                 className="button-primary"
-                disabled={bankingInProgress || !canBank}
+                disabled={bankingInProgress}
               >
                 {bankingInProgress ? 'Banking...' : 'Bank'}
               </button>
-              {!canBank ? <p className="text-xs text-slate-500">Banking is disabled because CB is not positive.</p> : null}
+              {!canBank ? (
+                <p className="text-xs text-amber-700">
+                  This ship is not eligible for banking right now. Try a ship with positive CB.
+                </p>
+              ) : null}
             </section>
 
             <section className="section-card space-y-3">
@@ -281,13 +313,13 @@ export const BankingPage = () => {
                 type="button"
                 onClick={() => void handleApply()}
                 className="button-primary"
-                disabled={applyInProgress || !canApply}
+                disabled={applyInProgress}
               >
                 {applyInProgress ? 'Applying...' : 'Apply'}
               </button>
               {!canApply ? (
-                <p className="text-xs text-slate-500">
-                  Apply is disabled unless CB is negative and banked balance is available.
+                <p className="text-xs text-amber-700">
+                  Apply is available only for deficit ships when year ledger balance is available.
                 </p>
               ) : null}
             </section>
@@ -302,7 +334,22 @@ export const BankingPage = () => {
             </div>
           ) : null}
 
-          <div className="section-card overflow-x-auto">
+          <div className="space-y-2 md:hidden">
+            <p className="text-sm font-semibold text-slate-800">Year Ledger Records</p>
+            {(recordsResult?.records ?? []).length === 0 ? (
+              <div className="section-card p-4 text-xs text-slate-600">No ledger records for this year yet.</div>
+            ) : (
+              (recordsResult?.records ?? []).map((record) => (
+                <article key={record.id} className="section-card space-y-1 p-4 text-xs">
+                  <p className="font-semibold uppercase text-slate-700">{record.entryType}</p>
+                  <p className="text-slate-900">Amount: {record.amount.toFixed(2)}</p>
+                  <p className="text-slate-500">{new Date(record.createdAt).toLocaleString()}</p>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="section-card hidden overflow-x-auto md:block">
             <p className="mb-3 text-sm font-semibold text-slate-800">Year Ledger Records</p>
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-600">
