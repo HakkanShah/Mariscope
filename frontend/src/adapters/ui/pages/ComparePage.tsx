@@ -143,7 +143,17 @@ export const ComparePage = () => {
                     <td className={`px-3 py-2 ${row.percentDiff <= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                       {row.percentDiff.toFixed(3)}%
                     </td>
-                    <td className="px-3 py-2">{row.compliant ? '?' : '?'}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded px-2 py-1 text-xs font-semibold ${
+                          row.compliant
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {row.compliant ? 'Compliant' : 'Non-compliant'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
