@@ -1,5 +1,7 @@
 # PROMPT_GUIDE.md
 
+See also: [`Prompts.md`](Prompts.md) for the full prompt catalog used in this project.
+
 When interacting with AI agents:
 
 1. Always reference ARCHITECTURE.md.

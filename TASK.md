@@ -329,3 +329,25 @@ All constants, CB formula, and banking/pooling rules follow
 ---
 
 This is your full brief. Deliver clean code, structured repositories, and transparent documentation of AI-agent collaboration.
+
+---
+
+## Submission Addendum (Completed)
+
+Project documentation artifacts prepared for evaluator review:
+
+- [`README.md`](README.md) (expanded evaluator-facing project guide)
+- [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md) (agent usage log, outputs, validations)
+- [`Prompts.md`](Prompts.md) (prompt catalog used for build, debugging, and polish)
+- [`REFLECTION.md`](REFLECTION.md) (learning summary)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- [`DOMAIN_SPEC.md`](DOMAIN_SPEC.md)
+- [`PROMPT_GUIDE.md`](PROMPT_GUIDE.md)
+- [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
+
+UI screenshots are available in:
+
+- [`Assets/Mariscope_routes.png`](Assets/Mariscope_routes.png)
+- [`Assets/Mariscope_compare.png`](Assets/Mariscope_compare.png)
+- [`Assets/Mariscope_banking.png`](Assets/Mariscope_banking.png)
+- [`Assets/Mariscope_pooling.png`](Assets/Mariscope_pooling.png)

@@ -1,86 +1,172 @@
 # Mariscope
 
-Mariscope is a FuelEU Maritime compliance workspace with a React dashboard and a Node.js API.
-It covers route management, compliance balance (CB), Article 20 banking, and Article 21 pooling.
+Mariscope is a FuelEU Maritime compliance workspace built for the full-stack assignment brief.  
+It provides a React dashboard and Node.js API for route comparison, compliance balance (CB), banking (Article 20), and pooling (Article 21).
 
-## Overview
+## Quick Links
+- Assignment brief: [`TASK.md`](TASK.md)
+- Architecture rules: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Domain/business rules: [`DOMAIN_SPEC.md`](DOMAIN_SPEC.md)
+- Agent operation rules: [`AGENTS.md`](AGENTS.md)
+- AI workflow log: [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md)
+- Prompt catalog: [`Prompts.md`](Prompts.md)
+- Prompting guide: [`PROMPT_GUIDE.md`](PROMPT_GUIDE.md)
+- Testing strategy: [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
+- Reflection: [`REFLECTION.md`](REFLECTION.md)
 
-Features implemented:
+## Evaluator Checklist Mapping
+| Area | Evidence |
+| --- | --- |
+| Architecture discipline | Hexagonal structure in `backend/src` and `frontend/src`, documented in [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Functionality completeness | Routes, Compare, Banking, Pooling tabs and matching API endpoints |
+| Code quality | Strict TypeScript, ESLint clean, tests and builds passing |
+| Business correctness | CB, banking, pooling rules implemented per [`DOMAIN_SPEC.md`](DOMAIN_SPEC.md) |
+| AI-agent transparency | [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md) + [`Prompts.md`](Prompts.md) + [`REFLECTION.md`](REFLECTION.md) |
+| UX | Mobile-responsive layout, user-facing action guidance, route transitions |
 
-- Routes tab with required columns and filters (`vesselType`, `fuelType`, `year`)
-- Baseline route selection (`POST /routes/:id/baseline`)
-- Comparison view from `/routes/comparison` with `% difference` and compliance flag
-- Compliance CB endpoints (`/compliance/cb`, `/compliance/adjusted-cb`)
-- Banking endpoints (`/banking/bank`, `/banking/apply`, `/banking/records`)
-- Pooling endpoint (`POST /pools`) with greedy allocation and rule enforcement
+## Project Summary
+This repository is organized as a monorepo with workspace packages:
+- `frontend/` for React + TypeScript UI
+- `backend/` for Node.js + TypeScript API
+
+Core goals:
+- enforce clean architecture boundaries
+- keep domain rules testable and framework-independent
+- provide evaluator-friendly documentation and reproducible setup
+
+## Repository Structure
+```text
+.
+|- frontend/
+|  |- src/
+|  |  |- core/
+|  |  |- adapters/
+|  |  `- shared/
+|- backend/
+|  |- src/
+|  |  |- core/
+|  |  |- adapters/
+|  |  |- infrastructure/
+|  |  `- shared/
+|- Assets/
+|- README.md
+|- TASK.md
+|- AGENT_WORKFLOW.md
+`- Prompts.md
+```
+
+## Features Implemented
+
+### Frontend Tabs
+- `Routes`: list/filter routes, set baseline
+- `Compare`: baseline comparison table + chart, compliant/non-compliant status
+- `Banking`: bank surplus, apply ledger amount, KPI cards and records
+- `Pooling`: ship selection, pool-sum validation, allocation result
+
+### Backend Endpoints
+- `GET /routes`
+- `POST /routes/:id/baseline`
+- `GET /routes/comparison`
+- `GET /compliance/cb`
+- `GET /compliance/adjusted-cb`
+- `GET /banking/records`
+- `POST /banking/bank`
+- `POST /banking/apply`
+- `POST /pools`
 
 ## Architecture Summary
 
-Hexagonal architecture is used on both backend and frontend.
+### Backend
+- `core/domain`: pure domain math/rules
+- `core/application`: use-case orchestration
+- `core/ports`: interfaces
+- `adapters/inbound/http`: Express routes
+- `adapters/outbound/*`: memory/Postgres adapters
+- `infrastructure/*`: wiring, config, bootstrap
 
-Backend (`backend/src`):
-
-- `core/domain`: pure business rules (CB math, banking, pooling, comparison)
-- `core/application`: use-cases and orchestration
-- `core/ports`: dependency interfaces
-- `adapters/inbound/http`: Express routes/controllers
-- `adapters/outbound/*`: memory and PostgreSQL implementations
-- `infrastructure/*`: config, schema init, dependency wiring, server bootstrap
-
-Frontend (`frontend/src`):
-
-- `core/domain`: UI-facing domain contracts
+### Frontend
+- `core/domain`: UI-facing models
 - `core/application`: framework-agnostic use-cases
-- `core/ports`: API port interfaces
-- `adapters/infrastructure/api`: HTTP client and API adapter
-- `adapters/ui`: React pages and app shell
+- `core/ports`: API contracts
+- `adapters/infrastructure/api`: HTTP and API client adapters
+- `adapters/ui`: React pages/components
+- `shared/*`: styling, shared UI, error helpers
 
-## Tech Stack
+## UI Screenshots
 
-- Backend: Node.js, TypeScript, Express, PostgreSQL
-- Frontend: React, TypeScript, TailwindCSS, Recharts
-- Testing: Vitest + Supertest + Testing Library
+### Routes
+![Routes](Assets/Mariscope_routes.png)
+
+### Compare
+![Compare](Assets/Mariscope_compare.png)
+
+### Banking
+![Banking](Assets/Mariscope_banking.png)
+
+### Pooling
+![Pooling](Assets/Mariscope_pooling.png)
 
 ## Local Setup
 
-### 1. Install dependencies
+### Prerequisites
+- Node.js 20+
+- npm 10+
 
+### Install
 ```bash
 npm install
 ```
 
-### 2. Run development servers
+### Copy env files
+Windows (PowerShell):
+```bash
+copy backend\\.env.example backend\\.env
+copy frontend\\.env.example frontend\\.env
+```
 
+macOS/Linux:
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+### Run (frontend + backend)
 ```bash
 npm run dev
 ```
 
-This runs workspace dev scripts:
+Default local URLs:
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:3001`
 
-- Backend on `http://localhost:3001`
-- Frontend on `http://localhost:5173`
+## Environment Configuration
 
-### 3. Configure persistence (optional)
+### Backend (`backend/.env`)
+| Variable | Example | Notes |
+| --- | --- | --- |
+| `PORT` | `3001` | Server port |
+| `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/mariscope` | Required when `PERSISTENCE_DRIVER=postgres` |
+| `PERSISTENCE_DRIVER` | `memory` or `postgres` | Storage mode |
+| `CORS_ORIGIN` | `http://localhost:5173` | Frontend origin |
+| `LOG_LEVEL` | `info` | Logging verbosity |
+| `NODE_ENV` | `development` | Runtime env |
 
-Default is in-memory persistence.
+### Frontend (`frontend/.env`)
+| Variable | Example | Notes |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `http://localhost:3001` | Backend base URL |
 
-Use PostgreSQL by setting:
+## Seeds and Test Data
+- Fresh DB route seed includes `R001`-`R006`
+- Default baselines: `R001` (2024), `R004` (2025)
+- Initial banking ledger entries are seeded for realistic banking/apply flows
+- Seed runs only when target tables are empty
 
-- `PERSISTENCE_DRIVER=postgres`
-- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/mariscope`
-
-Schema and seed are auto-initialized at backend startup.
-
-Seed notes (fresh database):
-
-- Routes: 6 seeded routes (`R001`-`R006`)
-- Baselines: `R001` for 2024 and `R004` for 2025
-- Banking ledger: initial `bank_entries` are seeded to make Banking/Apply flows testable immediately
+If DB already has rows, re-seeding does not overwrite data.
 
 ## Quality Gates
 
-Run all checks:
-
+From repo root:
 ```bash
 npm run typecheck
 npm run lint
@@ -88,113 +174,84 @@ npm run test
 npm run build
 ```
 
-## API Samples
+Package-level commands:
+```bash
+npm run test --workspace @mariscope/backend
+npm run test --workspace @mariscope/frontend
+```
 
-### Get routes
+## API Example Requests
 
+### Routes
 ```http
 GET /routes?fuelType=LNG&year=2025
 ```
 
-Example response (abridged):
-
-```json
-{
-  "routes": [
-    {
-      "id": "R005",
-      "vesselType": "Container",
-      "fuelType": "LNG",
-      "year": 2025,
-      "ghgIntensityGco2ePerMj": 90.5,
-      "fuelConsumptionTonnes": 4950,
-      "distanceKm": 11900,
-      "totalEmissionsTonnes": 4400,
-      "isBaseline": false
-    }
-  ]
-}
-```
-
 ### Comparison
-
 ```http
-GET /routes/comparison?year=2024
+GET /routes/comparison?year=2025
 ```
 
-Example response (abridged):
+### Bank Surplus
+```http
+POST /banking/bank
+Content-Type: application/json
 
-```json
 {
-  "baseline": {
-    "routeId": "R001",
-    "year": 2024,
-    "ghgIntensityGco2ePerMj": 91
-  },
-  "targetIntensityGco2ePerMj": 89.3368,
-  "comparisons": [
-    {
-      "routeId": "R002",
-      "year": 2024,
-      "ghgIntensityGco2ePerMj": 88,
-      "percentDiff": -3.2967032967,
-      "compliant": true
-    }
-  ]
+  "shipId": "R002",
+  "amountToBank": 100000
 }
 ```
 
-### Banking apply
-
+### Apply Banked
 ```http
 POST /banking/apply
 Content-Type: application/json
 
 {
   "shipId": "R003",
-  "amountToApply": 500000
+  "amountToApply": 50000
 }
 ```
 
-Example response:
-
-```json
-{
-  "shipId": "R003",
-  "year": 2024,
-  "cbBefore": -869869200,
-  "applied": 500000,
-  "cbAfter": -869369200,
-  "remainingBankedAmount": 500000
-}
-```
-
-### Create pool
-
+### Create Pool
 ```http
 POST /pools
 Content-Type: application/json
 
 {
   "year": 2024,
-  "shipIds": ["R002"]
+  "shipIds": ["R002", "R003"]
 }
 ```
 
-Example response:
+## Deployment Notes (Current Setup)
+- Frontend: Vercel
+- Backend: Render
+- Database: Supabase Postgres
 
-```json
-{
-  "poolId": "pool-1",
-  "year": 2024,
-  "poolSumBefore": 262986240,
-  "poolSumAfter": 262986240,
-  "entries": [
-    {
-      "shipId": "R002",
-      "cbBefore": 262986240,
-      "cbAfter": 262986240
-    }
-  ]
-}
-```
+Production basics:
+- Set `VITE_API_BASE_URL` in frontend deployment
+- Set backend `CORS_ORIGIN` to deployed frontend URL
+- Set backend `DATABASE_URL` and `PERSISTENCE_DRIVER=postgres`
+- Ensure DB SSL/network settings match hosting provider requirements
+
+## Evaluation Notes
+- API contracts are aligned to assignment requirements in [`TASK.md`](TASK.md).
+- Seed data is designed to demonstrate valid and invalid flows for Compare, Banking, and Pooling.
+- UI includes explicit user-facing feedback for invalid actions instead of silent failures.
+- Mobile UX includes responsive tab navigation and small-screen card/table adaptations.
+
+## Submission Artifacts
+Required docs are present:
+- [`README.md`](README.md)
+- [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md)
+- [`Prompts.md`](Prompts.md)
+- [`REFLECTION.md`](REFLECTION.md)
+
+Supporting docs:
+- [`TASK.md`](TASK.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- [`DOMAIN_SPEC.md`](DOMAIN_SPEC.md)
+- [`PROMPT_GUIDE.md`](PROMPT_GUIDE.md)
+- [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
