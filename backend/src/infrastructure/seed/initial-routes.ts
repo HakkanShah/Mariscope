@@ -43,7 +43,7 @@ export const INITIAL_ROUTES: RouteProps[] = [
     fuelConsumptionTonnes: 4900,
     distanceKm: 11800,
     totalEmissionsTonnes: 4300,
-    isBaseline: false,
+    isBaseline: true,
   },
   {
     id: 'R005',
@@ -54,6 +54,17 @@ export const INITIAL_ROUTES: RouteProps[] = [
     fuelConsumptionTonnes: 4950,
     distanceKm: 11900,
     totalEmissionsTonnes: 4400,
+    isBaseline: false,
+  },
+  {
+    id: 'R006',
+    vesselType: 'Tanker',
+    fuelType: 'MGO',
+    year: 2025,
+    ghgIntensityGco2ePerMj: 87.9,
+    fuelConsumptionTonnes: 4720,
+    distanceKm: 11250,
+    totalEmissionsTonnes: 4050,
     isBaseline: false,
   },
 ];

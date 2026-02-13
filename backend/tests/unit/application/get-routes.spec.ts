@@ -11,7 +11,7 @@ describe('GetRoutesUseCase', () => {
 
     const result = await context.useCases.getRoutes.execute();
 
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(6);
     expect(result[0]?.id).toBe('R001');
   });
 
@@ -20,7 +20,7 @@ describe('GetRoutesUseCase', () => {
 
     const result = await context.useCases.getRoutes.execute({ year: 2025 });
 
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(3);
     expect(result.every((route) => route.year === 2025)).toBe(true);
   });
 

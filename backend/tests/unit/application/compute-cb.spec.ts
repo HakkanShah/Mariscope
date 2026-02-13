@@ -9,7 +9,7 @@ describe('ComputeCBUseCase', () => {
 
     const result = await context.useCases.computeCB.execute();
 
-    expect(result).toHaveLength(5);
+    expect(result).toHaveLength(6);
     expect(result[0]?.shipId).toBe('R001');
     expect(result[0]?.result).toHaveProperty('complianceBalance');
   });

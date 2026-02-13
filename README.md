@@ -71,6 +71,12 @@ Use PostgreSQL by setting:
 
 Schema and seed are auto-initialized at backend startup.
 
+Seed notes (fresh database):
+
+- Routes: 6 seeded routes (`R001`-`R006`)
+- Baselines: `R001` for 2024 and `R004` for 2025
+- Banking ledger: initial `bank_entries` are seeded to make Banking/Apply flows testable immediately
+
 ## Quality Gates
 
 Run all checks:

@@ -98,7 +98,7 @@ describe('API integration', () => {
     const body = response.body as RoutesResponse;
 
     expect(response.status).toBe(200);
-    expect(body.routes).toHaveLength(5);
+    expect(body.routes).toHaveLength(6);
     expect(body.routes[0]?.id).toBe('R001');
     expect(body.routes[0]?.vesselType).toBe('Container');
   });
@@ -129,6 +129,15 @@ describe('API integration', () => {
     expect(body.baseline.routeId).toBe('R001');
     expect(body.comparisons).toHaveLength(2);
     expect(body.comparisons[0]).toHaveProperty('percentDiff');
+  });
+
+  it('GET /routes/comparison supports seeded baseline for 2025', async () => {
+    const response = await request(app).get('/routes/comparison').query({ year: 2025 });
+    const body = response.body as ComparisonResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.baseline.routeId).toBe('R004');
+    expect(body.comparisons).toHaveLength(2);
   });
 
   it('GET /compliance/cb computes compliance values', async () => {

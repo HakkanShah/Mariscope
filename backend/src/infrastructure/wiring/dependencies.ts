@@ -32,7 +32,11 @@ import {
 } from '../../adapters/outbound/postgres/index.js';
 import type { AppConfig } from '../config/env.js';
 import { createPgPool } from '../db/postgres.js';
-import { initializePostgresSchema, seedInitialRoutesIfEmpty } from '../db/init-schema.js';
+import {
+  initializePostgresSchema,
+  seedInitialBankEntriesIfEmpty,
+  seedInitialRoutesIfEmpty,
+} from '../db/init-schema.js';
 import { INITIAL_ROUTES } from '../seed/initial-routes.js';
 
 export interface AppDependencies {
@@ -118,6 +122,7 @@ export const createAppDependencies = async (config: AppConfig): Promise<AppDepen
   const dbPool = createPgPool(config);
   await initializePostgresSchema(dbPool);
   await seedInitialRoutesIfEmpty(dbPool);
+  await seedInitialBankEntriesIfEmpty(dbPool);
 
   const repositories = createPostgresRepositories(dbPool);
 

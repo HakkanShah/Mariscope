@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 
 import { Route } from '../../core/domain/route.js';
+import { INITIAL_BANK_ENTRIES } from '../seed/initial-bank-entries.js';
 import { INITIAL_ROUTES } from '../seed/initial-routes.js';
 
 export const initializePostgresSchema = async (pool: Pool): Promise<void> => {
@@ -92,6 +93,26 @@ export const seedInitialRoutesIfEmpty = async (pool: Pool): Promise<void> => {
         route.totalEmissionsTonnes,
         route.isBaseline,
       ],
+    );
+  }
+};
+
+export const seedInitialBankEntriesIfEmpty = async (pool: Pool): Promise<void> => {
+  const existing = await pool.query<{ count: string }>('SELECT COUNT(*) AS count FROM bank_entries');
+  const row = existing.rows[0];
+  const count = Number(row?.count ?? '0');
+
+  if (count > 0) {
+    return;
+  }
+
+  for (const entry of INITIAL_BANK_ENTRIES) {
+    await pool.query(
+      `
+      INSERT INTO bank_entries (ship_id, year, entry_type, amount_gco2eq)
+      VALUES ($1, $2, $3, $4)
+      `,
+      [entry.shipId, entry.year, entry.entryType, entry.amount],
     );
   }
 };

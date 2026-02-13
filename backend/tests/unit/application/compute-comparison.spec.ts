@@ -18,7 +18,7 @@ describe('ComputeComparisonUseCase', () => {
     const context = createApplicationTestContext();
 
     await expect(
-      context.useCases.computeComparison.execute({ year: 2025 }),
+      context.useCases.computeComparison.execute({ year: 2030 }),
     ).rejects.toThrowError(ApplicationError);
   });
 });
