@@ -1,4 +1,4 @@
-# Mariscope
+# Mariscope  
 
 Mariscope is a FuelEU Maritime compliance workspace built for the full-stack assignment brief.  
 It provides a React dashboard and Node.js API for route comparison, compliance balance (CB), banking (Article 20), and pooling (Article 21).
